@@ -45,6 +45,35 @@ sudo add-apt-repository 'deb https://repo.download.nvidia.com/jetson/common r36.
 sudo apt-get update
 sudo apt-get install -y pva-allow-2
 ```
+## setup for DL(Deep Learning)
+```bash
+## CUDA 12.6
+sudo apt install cuda-toolkit-12-6
+
+## torch 2.6
+cd lib/
+wget https://developer.download.nvidia.com/compute/redist/jp/v61/pytorch/torch-2.5.0a0+872d972e41.nv24.08.17622132-cp310-cp310-linux_aarch64.whl
+wget https://pypi.jetson-ai-lab.dev/jp6/cu126/+f/6cc/6ecfe8a5994fd/torch-2.6.0-cp310-cp310-linux_aarch64.whl
+pip3 install --force --no-cache-dir torch-2.6.0-cp310-cp310-linux_aarch64.whl
+echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
+source ~/.bashrc
+
+
+## torchvision
+sudo apt-get update
+sudo apt-get install -y libjpeg-dev zlib1g-dev
+
+export USE_CUDA=1 USE_CUDNN=1 USE_MKLDNN=1 TORCH_CUDA_ARCH_LIST="8.7" FORCE_CUDA=1 FORCE_MPS=1
+git clone --branch v0.21.0 https://github.com/pytorch/vision.git
+cd vision
+python3 setup.py install --user
+
+
+## TensorRT
+git clone https://github.com/NVIDIA-AI-IOT/torch2trt
+cd torch2trt
+python3 setup.py install
+```
 
 ## hotspot
 ```bash
