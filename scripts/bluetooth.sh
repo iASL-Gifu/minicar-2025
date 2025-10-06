@@ -1,8 +1,11 @@
 #!/bin/bash
 
 # --- 設定 ---
-# ペアリングしたいDualShock 4のMACアドレス
-CONTROLLER_MAC="A0:AB:51:5F:62:86"
+# デフォルトのDualShock 4のMACアドレス
+DEFAULT_CONTROLLER_MAC="A0:AB:51:5F:62:86"
+
+# --- 引数の処理 ---
+CONTROLLER_MAC=${1:-$DEFAULT_CONTROLLER_MAC}
 
 # --- スクリプト本体 ---
 echo "🎮 DualShock 4 自動ペアリングスクリプト"
@@ -20,8 +23,6 @@ echo
 echo "ペアリングを開始します (MACアドレス: $CONTROLLER_MAC)"
 echo "しばらくお待ちください..."
 
-# コマンドをパイプでbluetoothctlに渡すことで自動実行する
-# 各コマンドの間にsleepを挟み、処理の安定性を高める
 {
     # 念のため、既存のペアリング情報を削除
     echo -e "remove $CONTROLLER_MAC\n"
