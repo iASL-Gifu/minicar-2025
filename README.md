@@ -45,3 +45,14 @@ sudo add-apt-repository 'deb https://repo.download.nvidia.com/jetson/common r36.
 sudo apt-get update
 sudo apt-get install -y pva-allow-2
 ```
+
+## hotspot
+```bash
+bash hotspot.sh wlan0 tamiya22 tamiya22
+```
+
+## bluetooth
+```bash
+## A0:AB:51:5F:62:86にbluetooth接続をする
+bash bluetooth.sh A0:AB:51:5F:62:86
+```
