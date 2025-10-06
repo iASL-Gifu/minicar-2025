@@ -59,7 +59,7 @@ echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
 source ~/.bashrc
 
 
-## torchvision
+## torchvision 0.21.0
 sudo apt-get update
 sudo apt-get install -y libjpeg-dev zlib1g-dev
 
@@ -75,6 +75,8 @@ cd torch2trt
 python3 setup.py install
 ```
 
+## scripts
+
 ## hotspot
 ```bash
 bash hotspot.sh wlan0 tamiya22 tamiya22
@@ -83,5 +85,23 @@ bash hotspot.sh wlan0 tamiya22 tamiya22
 ## bluetooth
 ```bash
 ## A0:AB:51:5F:62:86にbluetooth接続をする
-bash bluetooth.sh A0:AB:51:5F:62:86
+bash bluetooth.sh <MAC_ADDRESS>
+```
+
+## tmux
+```bash
+bash tmux.sh <session_name>
+```
+
+## docker run
+```bash
+## setting
+cd ${ISAAC_ROS_WS}/src/isaac_ros_common/scripts && \
+touch .isaac_ros_common-config && \
+echo CONFIG_IMAGE_KEY=ros2_humble.realsense.dds_setup > .isaac_ros_common-config
+echo CONFIG_DOCKER_SEARCH_DIRS=("../docker/Dockerfile.cyclone_dds") > .isaac_ros_common-config
+
+## run
+cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
+./scripts/run_dev.sh -d ${ISAAC_ROS_WS}
 ```
