@@ -1,0 +1,5 @@
+/**:
+  ros__parameters:
+    output_dir: "/home/jetson-at/record/"
+    all_topics: false
+    topics: ['/camera/color/image_raw', '/jetracer/cmd_drive']

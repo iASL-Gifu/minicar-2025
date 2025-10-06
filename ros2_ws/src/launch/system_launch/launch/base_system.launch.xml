@@ -1,0 +1,14 @@
+<launch>
+    
+    <!-- JetRacer 制御ノードの起動 -->
+    <include file="$(find-pkg-share jetracer_node)/launch/jetracer.launch.xml">
+    </include>
+
+    <!-- Joy Manager ノード -->
+    <group unless="$(var advance)">
+        <include file="$(find-pkg-share joy_manager)/launch/teleop.launch.xml" />
+    </group>
+
+    
+    
+</launch>
