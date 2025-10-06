@@ -4,7 +4,7 @@ repositories:
   ros2_ws/src/isaac_ros/src/isaac_ros_common:
     type: git
     url: https://github.com/Arata-Stu/isaac_ros_common.git
-    version: v3.2.0
+    version: dev
 
   # Jetracer
   lib/jetracer
