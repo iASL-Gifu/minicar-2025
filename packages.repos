@@ -1,0 +1,7 @@
+repositories:
+  # third_party packages
+
+  ros2_ws/src/isaac/isaac_ros_common:
+    type: git
+    url: https://github.com/Arata-Stu/isaac_ros_common.git
+    version: v3.2.0
