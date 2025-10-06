@@ -2,7 +2,25 @@
 
 ## setup
 
-## setup for ISAAC ROS
+## 1. base
+```bash
+mkdir -p "${HOME}/workspace/"
+git clone https://github.com/iASL-Gifu/minicar-2025.git
+cd minicar-2025
+vcs import < packages.repos
+```
+
+## 2. setup for jetracer
+```bash
+sudo apt install python3-pip
+sudo pip3 install -U jetson-stats
+
+cd lib/jetracer
+sudo python3 setup.py install
+pip3 install traitlets questionary
+```
+
+## setup for ISAAC ROS on Jetson Orin Nano 8GB
 ```bash
 ## jetson clocks
 sudo /usr/bin/jetson_clocks
@@ -12,9 +30,7 @@ sudo /usr/sbin/nvpmodel -m 0
 sudo usermod -aG docker $USER
 newgrp docker
 
-## workspaceの作成
-mkdir -p "${HOME}/workspace/"
-git clone 
+## workspaceの設定
 echo "export ISAAC_ROS_WS=${HOME}/workspace/minicar-2025/ros2_ws/src/isaac-ros/" >> ~/.bashrc
 source ~/.bashrc
 
