@@ -22,4 +22,4 @@ pilot_net_decoder_node:
     tensor_name: "output_tensor"
     # モデルの出力値を調整するスケール係数
     steer_scale: 1.0
-    speed_scale: 0.5
+    speed_scale: 1.0
