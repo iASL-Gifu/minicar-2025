@@ -77,9 +77,10 @@ bash tmux.sh <session_name>
 ```bash
 ## setting
 cd ${ISAAC_ROS_WS}/src/isaac_ros_common/scripts && \
-touch .isaac_ros_common-config && \
-echo CONFIG_IMAGE_KEY=ros2_humble.realsense.dds_setup > .isaac_ros_common-config
-echo 'CONFIG_DOCKER_SEARCH_DIRS=("../docker/Dockerfile.cyclone_dds")' > .isaac_ros_common-config
+cat > .isaac_ros_common-config << EOF
+CONFIG_IMAGE_KEY=ros2_humble.realsense.dds_setup
+CONFIG_DOCKER_SEARCH_DIRS=("../docker/Dockerfile.cyclone_dds")
+EOF
 
 ## run
 cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
