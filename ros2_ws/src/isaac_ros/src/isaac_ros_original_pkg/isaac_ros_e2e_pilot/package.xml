@@ -18,14 +18,13 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_e2e_pilot</name>
   <version>0.1.0</version>
   <description>Decoder node for End-to-End PilotNet-like models</description>
 
-  <maintainer email="">Isaac ROS Maintainers</maintainer>
+  <maintainer email="your_email@example.com">Isaac ROS Maintainers</maintainer>
   <license>Apache-2.0</license>
   <url type="website">https://developer.nvidia.com/isaac-ros/</url>
   <author>Your Name</author>
