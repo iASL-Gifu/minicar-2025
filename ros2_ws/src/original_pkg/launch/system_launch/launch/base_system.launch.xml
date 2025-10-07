@@ -5,10 +5,6 @@
     </include>
 
     <!-- Joy Manager ノード -->
-    <group unless="$(var advance)">
-        <include file="$(find-pkg-share joy_manager)/launch/teleop.launch.xml" />
-    </group>
-
-    
-    
+    <include file="$(find-pkg-share joy_manager)/launch/teleop.launch.xml" />
+ 
 </launch>
