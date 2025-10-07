@@ -15,7 +15,10 @@ vcs import < packages.repos
 sudo apt install python3-pip
 sudo pip3 install -U jetson-stats
 
-cd lib/jetracer
+mkdir lib
+cd lib 
+git clone https://github.com/NVIDIA-AI-IOT/jetracer.git
+cd jetracer
 sudo python3 setup.py install
 pip3 install traitlets questionary
 ```

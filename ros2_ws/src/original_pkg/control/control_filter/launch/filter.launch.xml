@@ -1,6 +1,8 @@
 <launch>
 
-  <arg name="control_filter"  default="$(find-pkg-share control_filter)/config/control_filter.param.yaml"/>
+  <arg name="input_raw_control_cmd" default="/ackermann_cmd_raw"/>
+  <arg name="output_filtered_control_cmd" default="/ackermann_cmd"/>
+  <arg name="control_filter_param"  default="$(find-pkg-share control_filter)/config/control_filter.param.yaml"/>
   <!-- control filter node -->
   <node pkg="control_filter" 
         exec="control_filter_node"
@@ -8,10 +10,10 @@
         output="screen">
 
     <!-- パラメータ -->
-    <param from="$(var control_filter)"/>
+    <param from="$(var control_filter_param)"/>
     <!-- トピックのremap -->
-    <remap from="/cmd_drive" to="/ackermann_cmd_raw"/>
-    <remap from="/cmd_drive_filtered" to="/ackermann_cmd"/>
+    <remap from="/cmd_drive" to="$(var input_raw_control_cmd)"/>
+    <remap from="/cmd_drive_filtered" to="$(var output_filtered_control_cmd)"/>
 
   </node>
 
