@@ -6,7 +6,9 @@
 ```bash
 mkdir -p "${HOME}/workspace/"
 cd workspace
-git clone https://github.com/iASL-Gifu/minicar-2025.git --recursive
+git clone https://github.com/iASL-Gifu/minicar-2025.git 
+cd minicar-2025
+vcs import < packages.repos
 ```
 
 ## 2. setup for jetracer
