@@ -1,3 +1,7 @@
 [submodule "ros2_ws/src/isaac_ros/src/isaac_ros_common"]
 	path = ros2_ws/src/isaac_ros/src/isaac_ros_common
 	url = https://github.com/Arata-Stu/isaac_ros_common.git
+
+[submodule "ros2_ws/src/isaac_ros/src/isaac_ros_visual_slam"]
+	path = ros2_ws/src/isaac_ros/src/isaac_ros_visual_slam
+	url = https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_visual_slam.git
