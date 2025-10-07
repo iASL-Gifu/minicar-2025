@@ -76,8 +76,8 @@ class IsaacROSPilotNetLaunchFragment(IsaacROSLaunchFragment):
                 name='pilot_net_decoder_node',
                 parameters=[params_file],
                 remappings=[
-                    ('/input/control_tensor', '/control_tensor'),
-                    ('/output/ackermann_cmd', '/ackermann_cmd')
+                    ('tensor_sub', '/control_tensor'),
+                    ('cmd_ackermann', '/ackermann_cmd')
                 ]
             ),
         }

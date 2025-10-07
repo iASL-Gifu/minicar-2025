@@ -40,13 +40,13 @@ PilotNetDecoderNode::PilotNetDecoderNode(const rclcpp::NodeOptions options)
   nitros_sub_ = std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
         nvidia::isaac_ros::nitros::NitrosTensorListView>>(
       this,
-      "/input/control_tensor",  // Input topic name
+      "tensor_sub",  // Input topic name
       nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
       std::bind(&PilotNetDecoderNode::InputCallback, this, std::placeholders::_1));
 
   // Initialize the Ackermann publisher
   pub_control_ = create_publisher<ackermann_msgs::msg::AckermannDrive>(
-      "/output/ackermann_cmd", 10);  // Output topic name
+      "cmd_ackermann", 10);  // Output topic name
 
   // Declare and get parameters
   tensor_name_ = declare_parameter<std::string>("tensor_name", "output_tensor");

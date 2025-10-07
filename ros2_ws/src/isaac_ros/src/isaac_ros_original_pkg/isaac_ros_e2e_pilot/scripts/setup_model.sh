@@ -20,110 +20,96 @@
 # This script prepares the pretrained detectnet model for quick deployment with Triton
 # inside the Docker container
 
-# default arguments
-MODEL_LINK="https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/deployable_quantized_onnx_v2.6.3/zip"
-MODEL_FILE_NAME="resnet34_peoplenet.onnx"
-HEIGHT="544"
-WIDTH="960"
-CONFIG_FILE="peoplenet_config.pbtxt"
-PRECISION="int8"
-MAX_BATCH_SIZE="16"
+
+# === Default arguments for PilotNet model ===
+MODEL_LINK="https://example.com/path/to/pilotnet.onnx.zip"
+MODEL_FILE_NAME="pilotnet.onnx"
+HEIGHT="120"
+WIDTH="160"
+CONFIG_FILE="pilotnet_config.pbtxt"
+PRECISION="fp16"
+MAX_BATCH_SIZE="1"
+
+# --- Functions ---
 
 function print_parameters() {
   echo
   echo "***************************"
-  echo using parameters:
-  echo MODEL_LINK : $MODEL_LINK
-  echo MAX_BATCH_SIZE : $MAX_BATCH_SIZE
-  echo HEIGHT : $HEIGHT
-  echo WIDTH : $WIDTH
-  echo CONFIG_FILE : $CONFIG_FILE
+  echo "Using parameters for PilotNet:"
+  echo "MODEL_LINK      : $MODEL_LINK"
+  echo "MODEL_FILE_NAME : $MODEL_FILE_NAME"
+  echo "INPUT_SHAPE     : 3x${HEIGHT}x${WIDTH}"
+  echo "PRECISION       : $PRECISION"
+  echo "MAX_BATCH_SIZE  : $MAX_BATCH_SIZE"
+  echo "CONFIG_FILE     : $CONFIG_FILE"
   echo "***************************"
   echo
 }
 
-function check_labels_files() {
-  if [[ ! -f "labels.txt" ]]
-  then
-    echo "Labels file does not exist with the model."
-    touch labels.txt
-    echo "Please enter number of labels."
-    read N_LABELS
-    for (( i=0; i < $N_LABELS ; i=i+1 )); do
-      echo "Please enter label string"
-      read label
-      echo $label >> labels.txt
-    done
-  else
-    echo "Labels file received with model."
-  fi
-}
-
-# Function that extracts the last word in the three-word chain after "models/"
-extract_model_name() {
-    url="$1"
-    # Extract the three-word chain after "models/"
-    three_word_chain=$(echo $url | grep -oP 'models/\K([^/]+)(/[^/]+){2}')
-    # Extract the last word
-    last_word=$(echo $three_word_chain | grep -oP '[^/]+$')
-    echo $last_word
-}
-
 function setup_model() {
-  # Download pre-traine ONNX model to appropriate directory
-  # Extract model names from URLs
-  model_name_from_model_link=$(extract_model_name "$MODEL_LINK")
-  OUTPUT_PATH=${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link
-  echo "Model name from model link: $model_name_from_model_link"
-  echo Creating Directory : "${OUTPUT_PATH}/1"
-  rm -rf ${OUTPUT_PATH}
-  mkdir -p ${OUTPUT_PATH}/1
-  cd ${OUTPUT_PATH}/1
-  echo Downloading .onnx file from $MODEL_LINK
-  echo From $MODEL_LINK
-  wget --content-disposition $MODEL_LINK -O model.zip
-  echo Unziping network model file .onnx
+  # Set the output directory for the model assets
+  local model_name="pilotnet" # Or extract from URL if desired
+  local output_path="${ISAAC_ROS_WS}/isaac_ros_assets/models/${model_name}"
+  
+  echo "Creating directory: ${output_path}/1"
+  rm -rf "${output_path}"
+  mkdir -p "${output_path}/1"
+  cd "${output_path}/1"
+
+  # Download and extract the model
+  echo "Downloading model from ${MODEL_LINK}"
+  wget --content-disposition "${MODEL_LINK}" -O model.zip
+  echo "Unzipping model file..."
   unzip -o model.zip
-  echo Checking if labels.txt exists
-  check_labels_files
-  echo Converting .onnx to a TensorRT Engine Plan
 
-  # if model doesnt have labels.txt file, then create one manually
-  # create custom model
+  if [[ ! -f "$MODEL_FILE_NAME" ]]; then
+    echo "Error: ${MODEL_FILE_NAME} not found after unzipping."
+    exit 1
+  fi
+  
+  echo "Converting ONNX model to a TensorRT Engine Plan (.plan)..."
+
+  # Use trtexec to convert ONNX to a TensorRT engine
   /usr/src/tensorrt/bin/trtexec \
-    --maxShapes="input_1:0":${MAX_BATCH_SIZE}x3x${HEIGHT}x${WIDTH} \
-    --minShapes="input_1:0":1x3x${HEIGHT}x${WIDTH} \
-    --optShapes="input_1:0":1x3x${HEIGHT}x${WIDTH} \
-    --$PRECISION \
-    --calib="${OUTPUT_PATH}/1/resnet34_peoplenet_int8.txt" \
-    --onnx="${OUTPUT_PATH}/1/${MODEL_FILE_NAME}" \
-    --saveEngine="${OUTPUT_PATH}/1/model.plan" \
-    --skipInference
-
-  echo Copying .pbtxt config file to ${OUTPUT_PATH}
-  export ISAAC_ROS_DETECTNET_PATH=$(ros2 pkg prefix isaac_ros_detectnet --share)
-  cp $ISAAC_ROS_DETECTNET_PATH/config/$CONFIG_FILE \
-    ${OUTPUT_PATH}/config.pbtxt
-  echo Completed quickstart setup
+    --onnx="${output_path}/1/${MODEL_FILE_NAME}" \
+    --saveEngine="${output_path}/1/model.plan" \
+    --minShapes=input_1:1x3x${HEIGHT}x${WIDTH} \
+    --optShapes=input_1:1x3x${HEIGHT}x${WIDTH} \
+    --maxShapes=input_1:${MAX_BATCH_SIZE}x3x${HEIGHT}x${WIDTH} \
+    --${PRECISION} \
+    --verbose
+  
+  # Copy the Triton configuration file
+  echo "Copying config.pbtxt to ${output_path}"
+  local pkg_share_path=$(ros2 pkg prefix isaac_ros_e2e_pilot --share)
+  cp "${pkg_share_path}/config/${CONFIG_FILE}" \
+    "${output_path}/config.pbtxt"
+    
+  echo "Completed PilotNet model setup."
 }
 
 function show_help() {
-  IFS=',' read -ra HELP_OPTIONS <<< "${LONGOPTS}"
-  echo "Valid options: "
-  for opt in "${HELP_OPTIONS[@]}"; do
-    REQUIRED_ARG=""
-    if [[ "$opt" == *":" ]]; then
-      REQUIRED_ARG="${opt//:/}"
-    fi
-    echo -e "\t--${opt//:/} ${REQUIRED_ARG^^}"
-  done
+  echo "Usage: $0 [options]"
+  echo "Options:"
+  echo "  -m, --model-link        URL to the zipped ONNX model. (Default: ${MODEL_LINK})"
+  echo "      --model-file-name   Filename of the ONNX model inside the zip. (Default: ${MODEL_FILE_NAME})"
+  echo "  -c, --config-file       Name of the pbtxt config file in the config dir. (Default: ${CONFIG_FILE})"
+  echo "  -p, --precision         Precision for TensorRT engine (fp32, fp16, int8). (Default: ${PRECISION})"
+  echo "  -b, --max-batch-size    Maximum batch size for the TensorRT engine. (Default: ${MAX_BATCH_SIZE})"
+  echo "  -h, --help              Show this help message."
 }
 
-# Get command line arguments
-OPTIONS=m:mfn:b:p:ol:h
-LONGOPTS=model-link:,model-file-name:,max-batch-size:,config-file:,precision:,output-layers:,help
+# --- Main script execution ---
+
+# Parse command line arguments
+# Note: Removed --output-layers as it's not relevant for PilotNet
+OPTIONS=m:c:p:b:h
+LONGOPTS=model-link:,model-file-name:,config-file:,precision:,max-batch-size:,help
 
 PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
+if [[ $? -ne 0 ]]; then
+    exit 1
+fi
 eval set -- "$PARSED"
 
 while true; do
@@ -132,7 +118,7 @@ while true; do
           MODEL_LINK="$2"
           shift 2
           ;;
-        -mfn|--model-file-name)
+        --model-file-name)
           MODEL_FILE_NAME="$2"
           shift 2
           ;;
@@ -157,14 +143,13 @@ while true; do
           break
           ;;
         *)
-          echo "Unknown argument"
-          break
+          echo "Unknown argument: $1"
+          show_help
+          exit 1
           ;;
     esac
 done
 
-# Print script parameters being used
+# Print parameters and run the setup
 print_parameters
-
-# Download model and copy files to appropriate location
 setup_model

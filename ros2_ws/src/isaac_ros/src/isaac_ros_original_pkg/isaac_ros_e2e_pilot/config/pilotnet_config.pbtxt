@@ -1,0 +1,19 @@
+# config/pilotnet_config.pbtxt
+
+name: "pilotnet"
+platform: "tensorrt_plan"
+max_batch_size: 1
+input [
+  {
+    name: "input_1" # ★ ONNXモデルの入力名に合わせる
+    data_type: TYPE_FP32
+    dims: [ 3, 120, 160 ] # ★ モデルの入力解像度に合わせる
+  }
+]
+output [
+  {
+    name: "output_1" # ★ ONNXモデルの出力名に合わせる
+    data_type: TYPE_FP32
+    dims: [ 2 ] # [steer, speed] の2値を出力する場合
+  }
+]
