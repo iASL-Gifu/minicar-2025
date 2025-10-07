@@ -105,3 +105,36 @@ echo CONFIG_DOCKER_SEARCH_DIRS=("../docker/Dockerfile.cyclone_dds") > .isaac_ros
 cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
 ./scripts/run_dev.sh -d ${ISAAC_ROS_WS}
 ```
+
+# run
+
+## visual slam
+
+### 1. terminal 1 実行
+```bash
+## docker run
+cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
+./scripts/run_dev.sh -d ${ISAAC_ROS_WS}
+
+sudo apt-get update
+sudo apt-get install -y ros-humble-isaac-ros-examples ros-humble-isaac-ros-realsense
+rosdep update && rosdep install --from-paths ${ISAAC_ROS_WS}/src/isaac_ros_visual_slam/isaac_ros_visual_slam --ignore-src -y
+
+## build
+cd ${ISAAC_ROS_WS}/ && \
+   colcon build --symlink-install --packages-up-to isaac_ros_visual_slam --base-paths ${ISAAC_ROS_WS}/src/isaac_ros_visual_slam/isaac_ros_visual_slam
+
+source install/setup.bash
+ros2 launch isaac_ros_examples isaac_ros_examples.launch.py launch_fragments:=realsense_stereo_rect,visual_slam \
+interface_specs_file:=${ISAAC_ROS_WS}/isaac_ros_assets/isaac_ros_visual_slam/quickstart_interface_specs.json \
+base_frame:=camera_link camera_optical_frames:="['camera_infra1_optical_frame', 'camera_infra2_optical_frame']"
+```
+
+### 2. terminal 2 可視化
+```bash
+## docker run
+cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
+./scripts/run_dev.sh -d ${ISAAC_ROS_WS}
+
+rviz2 -d $(ros2 pkg prefix isaac_ros_visual_slam --share)/rviz/default.cfg.rviz
+```
