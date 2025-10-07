@@ -31,6 +31,9 @@ sudo /usr/sbin/nvpmodel -m 2
 ## docker user
 sudo usermod -aG docker $USER
 newgrp docker
+sudo systemctl daemon-reload && sudo systemctl restart docker
+sudo apt-get install git-lfs
+git lfs install --skip-repo
 
 ## workspaceの設定
 echo "export ISAAC_ROS_WS=${HOME}/workspace/minicar-2025/ros2_ws/src/isaac_ros" >> ~/.bashrc
