@@ -5,9 +5,8 @@
 ## 1. base
 ```bash
 mkdir -p "${HOME}/workspace/"
-git clone https://github.com/iASL-Gifu/minicar-2025.git
-cd minicar-2025
-vcs import < packages.repos
+cd workspace
+git clone https://github.com/iASL-Gifu/minicar-2025.git --recursive
 ```
 
 ## 2. setup for jetracer
@@ -27,14 +26,14 @@ pip3 install traitlets questionary
 ```bash
 ## jetson clocks
 sudo /usr/bin/jetson_clocks
-## power mode
-sudo /usr/sbin/nvpmodel -m 0
+## power mode MAX
+sudo /usr/sbin/nvpmodel -m 2
 ## docker user
 sudo usermod -aG docker $USER
 newgrp docker
 
 ## workspaceの設定
-echo "export ISAAC_ROS_WS=${HOME}/workspace/minicar-2025/ros2_ws/src/isaac-ros/" >> ~/.bashrc
+echo "export ISAAC_ROS_WS=${HOME}/workspace/minicar-2025/ros2_ws/src/isaac_ros" >> ~/.bashrc
 source ~/.bashrc
 
 ## VPI(Vision Programming Interface)
@@ -56,8 +55,7 @@ sudo apt install cuda-toolkit-12-6
 ## torch 2.6
 cd lib/
 wget https://developer.download.nvidia.com/compute/redist/jp/v61/pytorch/torch-2.5.0a0+872d972e41.nv24.08.17622132-cp310-cp310-linux_aarch64.whl
-wget https://pypi.jetson-ai-lab.dev/jp6/cu126/+f/6cc/6ecfe8a5994fd/torch-2.6.0-cp310-cp310-linux_aarch64.whl
-pip3 install --force --no-cache-dir torch-2.6.0-cp310-cp310-linux_aarch64.whl
+pip3 install --force --no-cache-dir torch-2.5.0a0+872d972e41.nv24.08.17622132-cp310-cp310-linux_aarch64.whl
 echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
 source ~/.bashrc
 
