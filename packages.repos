@@ -1,12 +1,12 @@
 repositories:
   ## ISAAC ROS
   
-  ros2_ws/src/isaac_ros/src/isaac_ros_common:
+  ros2_ws/src/isaac_ros/isaac_ros_common:
     type: git
     url: https://github.com/Arata-Stu/isaac_ros_common.git
     version: dev
 
-  ros2_ws/src/isaac_ros/src/isaac_ros_visual_slam:
+  ros2_ws/src/isaac_ros/isaac_ros_visual_slam:
     type: git
     url: https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_visual_slam.git
     version: release-3.2
