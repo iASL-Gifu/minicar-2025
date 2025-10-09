@@ -15,16 +15,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "isaac_ros_e2e_pilot/pilot_net_decoder_node.hpp" 
+#include "isaac_ros_e2e_pilot/pilot_net_decoder_node.hpp"
 
 #include <string>
 #include <vector>
-#include <algorithm> 
-#include <memory>    
 
-#include <cuda_runtime.h>
-
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wpedantic"
+#include "gxf/std/timestamp.hpp"
+#pragma GCC diagnostic pop
 
 namespace nvidia
 {
@@ -33,78 +37,74 @@ namespace isaac_ros
 namespace pilot_net
 {
 
-PilotNetDecoderNode::PilotNetDecoderNode(const rclcpp::NodeOptions options)
-: rclcpp::Node("pilot_net_decoder_node", options) 
+// Configuration for the NITROS pipeline
+constexpr char APP_YAML_FILENAME[] = "config/pilot_net_node.yaml";
+constexpr char PACKAGE_NAME[] = "isaac_ros_e2e_pilot";
+
+// Component and topic keys for mapping (using modern constexpr)
+constexpr char INPUT_COMPONENT_KEY[] = "tensor_sub/rx";
+constexpr char INPUT_TOPIC_NAME[] = "tensor_sub";
+
+constexpr char OUTPUT_COMPONENT_KEY[] = "ackermann_pub/tx";
+constexpr char OUTPUT_TOPIC_NAME[] = "cmd_ackermann";
+
+// C++17-compliant aggregate initialization for the configuration map
+const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
+  {INPUT_COMPONENT_KEY,
+    {
+      nitros::NitrosPublisherSubscriberType::NEGOTIATED,      // .type
+      rclcpp::QoS(1),                                         // .qos
+      "nitros_tensor_list_nchw_rgb_f32",                      // .compatible_data_format
+      INPUT_TOPIC_NAME,                                       // .topic_name
+    }
+  },
+  {OUTPUT_COMPONENT_KEY,
+    {
+      nitros::NitrosPublisherSubscriberType::NEGOTIATED,      // .type
+      rclcpp::QoS(1),                                         // .qos
+      "nitros_ackermann_drive",                               // .compatible_data_format
+      OUTPUT_TOPIC_NAME,                                      // .topic_name
+      INPUT_COMPONENT_KEY,                                    // .frame_id_source_key
+    }
+  }
+};
+
+PilotNetDecoderNode::PilotNetDecoderNode(const rclcpp::NodeOptions & options)
+: nitros::NitrosNode(
+    options,
+    APP_YAML_FILENAME,
+    CONFIG_MAP,
+    {}, {}, {}, // Preset extensions and other configurations
+    PACKAGE_NAME)
 {
-  // Initialize the NITROS subscriber
-  nitros_sub_ = std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-        nvidia::isaac_ros::nitros::NitrosTensorListView>>(
-      this,
-      "tensor_sub",  // Input topic name
-      nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
-      std::bind(&PilotNetDecoderNode::InputCallback, this, std::placeholders::_1));
-
-  // Initialize the Ackermann publisher
-  pub_control_ = create_publisher<ackermann_msgs::msg::AckermannDrive>(
-      "cmd_ackermann", 10);  // Output topic name
-
   // Declare and get parameters
   tensor_name_ = declare_parameter<std::string>("tensor_name", "output_tensor");
   steer_scale_ = declare_parameter<double>("steer_scale", 1.0);
   speed_scale_ = declare_parameter<double>("speed_scale", 1.0);
 
-  RCLCPP_INFO(this->get_logger(), "PilotNet Decoder Node has been initialized.");
+  // Register supported message types
+  registerSupportedType<nvidia::isaac_ros::nitros::NitrosTensorList>();
+  // You would also register your custom AckermannDrive NITROS type here
+  // registerSupportedType<nvidia::isaac_ros::nitros::NitrosAckermannDrive>();
+
+  startNitrosNode();
+
+  RCLCPP_INFO(this->get_logger(), "PilotNet Decoder Node (NitrosNode) has been initialized.");
 }
 
 PilotNetDecoderNode::~PilotNetDecoderNode() = default;
 
-void PilotNetDecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg)
+void PilotNetDecoderNode::postLoadGraphCallback()
 {
-  // 1. Get the tensor from the message by its name
-  auto tensor = msg.GetNamedTensor(tensor_name_);
-
-  // Assuming the model's output is two float values: [steer, speed]
-  const size_t expected_size_bytes = 2 * sizeof(float);
-  if (tensor.GetTensorSize() != expected_size_bytes) {
-    RCLCPP_ERROR_ONCE(
-      this->get_logger(), "Expected tensor size %zu bytes, but got %zu bytes. Check model output.",
-      expected_size_bytes, tensor.GetTensorSize());
-    return;
-  }
-
-  // 2. Copy the tensor data from GPU memory to a CPU vector
-  std::vector<float> control_values(2);
-  cudaError_t cuda_status = cudaMemcpy(
-    control_values.data(), tensor.GetBuffer(), tensor.GetTensorSize(), cudaMemcpyDeviceToHost);
-
-  if (cuda_status != cudaSuccess) {
-    RCLCPP_ERROR(
-      this->get_logger(), "Failed to copy tensor data from GPU to CPU: %s",
-      cudaGetErrorString(cuda_status));
-    return;
-  }
-
-  // 3. Extract steer and speed values
-  float steer = control_values[0];
-  float speed = control_values[1];
-
-  // 4. Apply scaling factors from parameters
-  float scaled_steer = steer * steer_scale_;
-  float scaled_speed = speed * speed_scale_;
-
-  // 5. Clamp the values to the range [-1.0, 1.0]
-  float clamped_steer = std::clamp(scaled_steer, -1.0f, 1.0f);
-  float clamped_speed = std::clamp(scaled_speed, -1.0f, 1.0f);
-
-  // 6. Create the AckermannDrive message
-  auto ackermann_msg = ackermann_msgs::msg::AckermannDrive();
-  ackermann_msg.header.stamp = msg.GetTimestamp();
-  ackermann_msg.header.frame_id = "base_link"; 
-  ackermann_msg.steering_angle = clamped_steer;
-  ackermann_msg.speed = clamped_speed;
-
-  // 7. Publish the control message
-  pub_control_->publish(ackermann_msg);
+  RCLCPP_INFO(get_logger(), "In postLoadGraphCallback(), passing ROS parameters to GXF.");
+  // The first argument is the component name in the YAML file.
+  // The second is the fully-qualified C++ class name of the GXF component.
+  getNitrosContext().setParameterStr(
+    "pilotnet_decoder", "nvidia::isaac_ros::PilotNetDecoder", "tensor_name", tensor_name_);
+  getNitrosContext().setParameterFloat64(
+    "pilotnet_decoder", "nvidia::isaac_ros::PilotNetDecoder", "steer_scale", steer_scale_);
+  getNitrosContext().setParameterFloat64(
+    "pilotnet_decoder", "nvidia::isaac_ros::PilotNetDecoder", "speed_scale", speed_scale_);
 }
 
 }  // namespace pilot_net
