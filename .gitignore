@@ -132,3 +132,8 @@ dmypy.json
 ros2_ws/src/isaac_ros/isaac_ros_common/
 ros2_ws/src/isaac_ros/isaac_ros_visual_slam/
 ros2_ws/src/rtabmap_ros/
+
+# ROS 2 Workspace Directories
+ros2_ws/build/
+ros2_ws/log/
+ros2_ws/install/
