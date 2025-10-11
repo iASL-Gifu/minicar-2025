@@ -1,0 +1,25 @@
+<launch>
+    <arg name="input_tensor_topic" default="/pilot_net/inference_result" 
+         description="Input tensor topic from the inference node"/>
+
+    <arg name="output_cmd_topic" default="/ackermann_cmd" 
+         description="Output Ackermann command topic"/>
+
+    <arg name="container_name" default="pilot_decoder_container" 
+         description="Name of the component container"/>
+
+    <node pkg="rclcpp_components" exec="component_container" name="$(var container_name)" 
+          output="screen" namespace=""/>
+
+    <load_composable_node target="$(var container_name)">
+        <composable_node pkg="isaac_ros_e2e_pilot" 
+                         plugin="nvidia::isaac_ros::pilot_net::PilotNetDecoderNode"
+                         name="pilot_net_decoder_node">
+            <param from="$(find-pkg-share isaac_ros_e2e_pilot)/config/params.yaml"/>
+            
+            <remap from="tensor_sub" to="$(var input_tensor_topic)"/>
+            <remap from="cmd_ackermann" to="$(var output_cmd_topic)"/>
+        </composable_node>
+    </load_composable_node>
+
+</launch>
