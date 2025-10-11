@@ -15,28 +15,60 @@ from src.model.pilotnet import PilotNet
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
-    for inputs, labels in tqdm(dataloader, desc="Training"):
-        inputs, labels = inputs.to(device), labels.to(device)
+    
+    for batch in tqdm(dataloader, desc="Training"):
+        # 辞書から各データをキーで取り出す
+        images = batch['image'].to(device) # 形状: [B, S, C, H, W]
+        steers = batch['steer']             # 形状: [B, S]
+        speeds = batch['speed']             # 形状: [B, S]
+        
+        b, s, c, h, w = images.shape
+        
+        # 5次元テンソルをモデルが受け取れる4次元に変換
+        # [B, S, C, H, W] -> [B*S, C, H, W]
+        inputs = images.view(b * s, c, h, w)
+        
+        # ラベルも同様にバッチ次元にまとめる
+        # [B, S] -> [B*S] にしてから結合し、[B*S, 2] の形状にする
+        labels = torch.stack([
+            steers.view(b * s), 
+            speeds.view(b * s)
+        ], dim=-1).to(device)
+
         optimizer.zero_grad()
+        # 4次元に変換した`inputs`をモデルに渡す
         outputs = model(inputs)
+        # 2次元に変換した`labels`で損失を計算
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
+        
     return total_loss / len(dataloader)
 
 def validate_one_epoch(model, dataloader, criterion, device):
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
-        for inputs, labels in tqdm(dataloader, desc="Validation"):
-            inputs, labels = inputs.to(device), labels.to(device)
+        for batch in tqdm(dataloader, desc="Validation"):
+            images = batch['image'].to(device)
+            steers = batch['steer']
+            speeds = batch['speed']
+
+            b, s, c, h, w = images.shape
+            inputs = images.view(b * s, c, h, w)
+            labels = torch.stack([
+                steers.view(b * s), 
+                speeds.view(b * s)
+            ], dim=-1).to(device)
+
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             total_loss += loss.item()
+            
     return total_loss / len(dataloader)
 
-# --- メイン実行関数 ---
+# --- メイン実行関数  ---
 @hydra.main(config_path="config", config_name="train", version_base="1.2")
 def main(cfg: DictConfig) -> None:
     print("--- Configuration ---")
@@ -54,6 +86,7 @@ def main(cfg: DictConfig) -> None:
     writer = SummaryWriter(log_dir=log_dir)
 
     data_path = hydra.utils.to_absolute_path(cfg.data_path)
+    
     full_dataset = RecordingSequenceDataset(root_dir=data_path, sequence_length=cfg.dataset.sequence_length)
     
     train_size = int(cfg.dataset.train_val_split_ratio * len(full_dataset))

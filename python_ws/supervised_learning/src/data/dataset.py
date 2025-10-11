@@ -6,7 +6,8 @@ import cv2
 
 class RecordingSequenceDataset(Dataset):
     """
-    個別の記録データから抽出した画像シーケンスと制御量を扱うためのDatasetクラス。
+    個別の記録データから抽出した画像、制御量、オドメトリのシーケンスを扱うためのDatasetクラス。
+    戻り値は各データをキーとする辞書形式。
 
     Args:
         root_dir (str): 抽出されたデータが格納されているルートディレクトリ。
@@ -28,15 +29,18 @@ class RecordingSequenceDataset(Dataset):
             image_dir = recording_path / 'images'
             steers_path = recording_path / 'steers.npy'
             speeds_path = recording_path / 'speeds.npy'
+            odoms_path = recording_path / 'odoms.npy'
 
-            if not (image_dir.exists() and steers_path.exists() and speeds_path.exists()):
+            if not (image_dir.exists() and steers_path.exists() and speeds_path.exists() and odoms_path.exists()):
+                print(f"[WARN] Skipping {recording_path.name}: required file is missing.")
                 continue
 
             image_paths = sorted(image_dir.glob('*.png'))
             steers = np.load(steers_path)
             speeds = np.load(speeds_path)
+            odoms = np.load(odoms_path)
             
-            if not (len(image_paths) == len(steers) == len(speeds)):
+            if not (len(image_paths) == len(steers) == len(speeds) == len(odoms)):
                 print(f"[WARN] Skipping {recording_path.name}: data length mismatch.")
                 continue
 
@@ -44,6 +48,7 @@ class RecordingSequenceDataset(Dataset):
                 'images': image_paths,
                 'steers': steers,
                 'speeds': speeds,
+                'odoms': odoms,
             })
             
             num_frames = len(image_paths)
@@ -60,10 +65,13 @@ class RecordingSequenceDataset(Dataset):
         
         recording_data = self.recordings_data[recording_idx]
         
+        # 各データのシーケンスを取得
         image_paths_seq = recording_data['images'][start_frame:end_frame]
         steers_seq = recording_data['steers'][start_frame:end_frame]
         speeds_seq = recording_data['speeds'][start_frame:end_frame]
+        odoms_seq = recording_data['odoms'][start_frame:end_frame]
         
+        # 画像シーケンスを読み込み、テンソルに変換
         images = []
         for img_path in image_paths_seq:
             image = cv2.imread(str(img_path))
@@ -74,10 +82,23 @@ class RecordingSequenceDataset(Dataset):
             images.append(image)
         
         image_tensor_seq = torch.stack(images)
-        labels_tensor_seq = torch.tensor(np.stack([steers_seq, speeds_seq], axis=-1), dtype=torch.float32)
         
+        # === 各データを個別のテンソルに変換 ===
+        steers_tensor_seq = torch.tensor(steers_seq, dtype=torch.float32)
+        speeds_tensor_seq = torch.tensor(speeds_seq, dtype=torch.float32)
+        odoms_tensor_seq = torch.tensor(odoms_seq, dtype=torch.float32)
+        
+        # シーケンス長が1の場合は、次元を削除して単一のデータとして扱う
         if self.sequence_length == 1:
             image_tensor_seq = image_tensor_seq.squeeze(0)
-            labels_tensor_seq = labels_tensor_seq.squeeze(0)
+            steers_tensor_seq = steers_tensor_seq.squeeze(0)
+            speeds_tensor_seq = speeds_tensor_seq.squeeze(0)
+            odoms_tensor_seq = odoms_tensor_seq.squeeze(0)
 
-        return image_tensor_seq, labels_tensor_seq
+        # === 戻り値を辞書形式に変更 ===
+        return {
+            'image': image_tensor_seq,
+            'steer': steers_tensor_seq,
+            'speed': speeds_tensor_seq,
+            'odom': odoms_tensor_seq
+        }

@@ -1,0 +1,29 @@
+# --- データ関連の設定 ---
+data_path: "./dataset/extracted/"
+
+# --- データセットと変換の設定 ---
+dataset:
+  sequence_length: 1
+  image_height: 120
+  image_width: 160
+  train_val_split_ratio: 0.8
+
+# --- モデルのパラメータ ---
+model:
+  num_outputs: 2
+  
+# --- 実行環境の設定 ---
+num_workers: 4
+
+# --- 分析対象のモデル ---
+model_path: './ckpts/best_model.pth'
+
+# --- 分析に特化したパラメータ ---
+analysis:
+  batch_size: 64
+  k_neighbors: 15
+
+# --- 分析結果の出力先ディレクトリ ---
+hydra:
+  run:
+    dir: ./outputs/analyze_model/${now:%Y-%m-%d}/${now:%H-%M-%S}
