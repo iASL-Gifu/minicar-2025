@@ -138,7 +138,7 @@ while true; do
           show_help
           exit 1
           ;;
-    ac
+    esac
 done
 
 # Check if required argument is provided

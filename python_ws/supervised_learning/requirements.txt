@@ -5,3 +5,4 @@ torch
 tqdm
 opencv-python
 tensorboard
+onnx
