@@ -20,7 +20,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "isaac_ros_tensor_list_interfaces/msg/tensor_list.hpp"
-#include "ackermann_msgs/msg/ackermann_drive.hpp"
+#include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include <string>
 
 namespace nvidia
@@ -39,12 +39,12 @@ private:
   void tensorCallback(const isaac_ros_tensor_list_interfaces::msg::TensorList::SharedPtr msg);
 
   // Parameters
-  std.string tensor_name_;
+  std::string tensor_name_;
   double steer_scale_;
   double speed_scale_;
 
   // Publisher and Subscriber
-  rclcpp::Publisher<ackermann_msgs::msg::AckermannDrive>::SharedPtr ackermann_pub_;
+  rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_pub_;
   rclcpp::Subscription<isaac_ros_tensor_list_interfaces::msg::TensorList>::SharedPtr tensor_sub_;
 };
 

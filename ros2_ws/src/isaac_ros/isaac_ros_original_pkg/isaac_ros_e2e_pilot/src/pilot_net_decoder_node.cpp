@@ -35,7 +35,7 @@ PilotNetDecoderNode::PilotNetDecoderNode(const rclcpp::NodeOptions & options)
   speed_scale_ = this->declare_parameter<double>("speed_scale", 1.0);
 
   // 通常のROS 2 Publisherを作成
-  ackermann_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDrive>(
+  ackermann_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(
     "/cmd_ackermann", 10);
 
   // 推論結果のTensorListトピックを購読するSubscriberを作成
@@ -67,10 +67,10 @@ void PilotNetDecoderNode::tensorCallback(
   const float * control_outputs = reinterpret_cast<const float *>(target_tensor.data.data());
 
   // 3. AckermannDriveメッセージを作成して発行
-  auto ackermann_msg = std::make_unique<ackermann_msgs::msg::AckermannDrive>();
+  auto ackermann_msg = std::make_unique<ackermann_msgs::msg::AckermannDriveStamped>();
   ackermann_msg->header = msg->header;  // タイムスタンプを引き継ぐ
-  ackermann_msg->steering_angle = control_outputs[0] * steer_scale_;
-  ackermann_msg->speed = control_outputs[1] * speed_scale_;
+  ackermann_msg->drive.steering_angle = control_outputs[0] * steer_scale_;
+  ackermann_msg->drive.speed = control_outputs[1] * speed_scale_;
   ackermann_pub_->publish(std::move(ackermann_msg));
 }
 
