@@ -23,15 +23,16 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake_auto REQUIRED)
+find_package(gxf_isaac_pilot_net REQUIRED)
+
 ament_auto_find_build_dependencies()
 
-# C++ライブラリの定義
 ament_auto_add_library(
   pilot_net_decoder_node
   SHARED
   src/pilot_net_decoder_node.cpp)
 
-# コンポーネントノードとして登録する情報
+# コンポーネントノードとして登録 
 rclcpp_components_register_nodes(
   pilot_net_decoder_node "nvidia::isaac_ros::pilot_net::PilotNetDecoderNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::pilot_net::PilotNetDecoderNode;$<TARGET_FILE:pilot_net_decoder_node>\n")
@@ -47,16 +48,16 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-# setup_model.shをインストール
+# スクリプトのインストール
 install(PROGRAMS
   scripts/setup_model.sh
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Embed versioning information into installed files
+# バージョン情報の埋め込み 
 ament_index_get_resource(ISAAC_ROS_COMMON_CMAKE_PATH isaac_ros_common_cmake_path isaac_ros_common)
 include("${ISAAC_ROS_COMMON_CMAKE_PATH}/isaac_ros_common-version-info.cmake")
 generate_version_info(${PROJECT_NAME})
 
-# launchディレクトリをインストール
+# launchとconfigディレクトリのインストール
 ament_auto_package(INSTALL_TO_SHARE launch config)
