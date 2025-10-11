@@ -31,6 +31,11 @@ add_library(pilot_net_decoder_node SHARED
   src/pilot_net_decoder_node.cpp
 )
 
+target_include_directories(pilot_net_decoder_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
 # ライブラリが依存するパッケージをリンク
 ament_target_dependencies(pilot_net_decoder_node PUBLIC
   "rclcpp"
