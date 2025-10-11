@@ -22,29 +22,23 @@ SPDX-License-Identifier: Apache-2.0
 <package format="3">
   <name>isaac_ros_e2e_pilot</name>
   <version>0.1.0</version>
-  <description>Decoder node for End-to-End PilotNet-like models</description>
+  <description>A simple ROS 2 node to decode PilotNet tensors to AckermannDrive commands.</description>
 
   <maintainer email="your_email@example.com">Your Name</maintainer>
   <license>Apache-2.0</license>
   <author>Your Name</author>
 
-  <buildtool_depend>ament_cmake_auto</buildtool_depend>
-
-  <depend>gxf_isaac_pilot_net</depend>
-
-  <depend>isaac_ros_nitros_ackermann_drive_type</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
-  <depend>isaac_ros_nitros</depend>
-  <depend>isaac_ros_nitros_tensor_list_type</depend>
   <depend>isaac_ros_tensor_list_interfaces</depend>
+  <depend>ackermann_msgs</depend>
 
   <build_depend>isaac_ros_common</build_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-  <test_depend>isaac_ros_test</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
