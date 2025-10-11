@@ -1,34 +1,9 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// SPDX-License-Identifier: Apache-2.0
+// ... (License Header) ...
 
 #include "isaac_ros_e2e_pilot/pilot_net_decoder_node.hpp"
-
-#include <string>
-#include <vector>
-
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
+#include <algorithm>
 #include "rclcpp_components/register_node_macro.hpp"
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#pragma GCC diagnostic ignored "-Wpedantic"
-#include "gxf/std/timestamp.hpp"
-#pragma GCC diagnostic pop
 
 namespace nvidia
 {
@@ -37,79 +12,56 @@ namespace isaac_ros
 namespace pilot_net
 {
 
-// Configuration for the NITROS pipeline
-constexpr char APP_YAML_FILENAME[] = "config/pilot_net_node.yaml";
-constexpr char PACKAGE_NAME[] = "isaac_ros_e2e_pilot";
-
-// Component and topic keys for mapping (using modern constexpr)
-constexpr char INPUT_COMPONENT_KEY[] = "tensor_sub/rx";
-constexpr char INPUT_TOPIC_NAME[] = "tensor_sub";
-
-constexpr char OUTPUT_COMPONENT_KEY[] = "ackermann_pub/tx";
-constexpr char OUTPUT_TOPIC_NAME[] = "cmd_ackermann";
-
-// C++17-compliant aggregate initialization for the configuration map
-const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
-  {INPUT_COMPONENT_KEY,
-    {
-      nitros::NitrosPublisherSubscriberType::NEGOTIATED,      // .type
-      rclcpp::QoS(1),                                         // .qos
-      "nitros_tensor_list_nchw_rgb_f32",                      // .compatible_data_format
-      INPUT_TOPIC_NAME,                                       // .topic_name
-    }
-  },
-  {OUTPUT_COMPONENT_KEY,
-    {
-      nitros::NitrosPublisherSubscriberType::NEGOTIATED,      // .type
-      rclcpp::QoS(1),                                         // .qos
-      "nitros_ackermann_drive",                               // .compatible_data_format
-      OUTPUT_TOPIC_NAME,                                      // .topic_name
-      INPUT_COMPONENT_KEY,                                    // .frame_id_source_key
-    }
-  }
-};
-
 PilotNetDecoderNode::PilotNetDecoderNode(const rclcpp::NodeOptions & options)
-: nitros::NitrosNode(
-    options,
-    APP_YAML_FILENAME,
-    CONFIG_MAP,
-    {}, {}, {}, // Preset extensions and other configurations
-    PACKAGE_NAME)
+: rclcpp::Node("pilot_net_decoder_node", options)
 {
-  // Declare and get parameters
-  tensor_name_ = declare_parameter<std::string>("tensor_name", "output_tensor");
-  steer_scale_ = declare_parameter<double>("steer_scale", 1.0);
-  speed_scale_ = declare_parameter<double>("speed_scale", 1.0);
+  // ROSパラメータの宣言と取得
+  tensor_name_ = this->declare_parameter<std::string>("tensor_name", "output_tensor");
+  steer_scale_ = this->declare_parameter<double>("steer_scale", 1.0);
+  speed_scale_ = this->declare_parameter<double>("speed_scale", 1.0);
 
-  // Register supported message types
-  registerSupportedType<nvidia::isaac_ros::nitros::NitrosTensorList>();
-  // You would also register your custom AckermannDrive NITROS type here
-  // registerSupportedType<nvidia::isaac_ros::nitros::NitrosAckermannDrive>();
+  // 通常のROS 2 Publisherを作成
+  ackermann_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDrive>(
+    "/cmd_ackermann", 10);
 
-  startNitrosNode();
+  // 推論結果のTensorListトピックを購読するSubscriberを作成
+  tensor_sub_ = this->create_subscription<isaac_ros_tensor_list_interfaces::msg::TensorList>(
+    "/tensor_out", 10,  // 推論ノードの出力トピック名に合わせる
+    std::bind(&PilotNetDecoderNode::tensorCallback, this, std::placeholders::_1));
 
-  RCLCPP_INFO(this->get_logger(), "PilotNet Decoder Node (NitrosNode) has been initialized.");
+  RCLCPP_INFO(this->get_logger(), "Simple PilotNet Decoder Node has been initialized.");
 }
 
-PilotNetDecoderNode::~PilotNetDecoderNode() = default;
-
-void PilotNetDecoderNode::postLoadGraphCallback()
+void PilotNetDecoderNode::tensorCallback(
+  const isaac_ros_tensor_list_interfaces::msg::TensorList::SharedPtr msg)
 {
-  RCLCPP_INFO(get_logger(), "In postLoadGraphCallback(), passing ROS parameters to GXF.");
-  // The first argument is the component name in the YAML file.
-  // The second is the fully-qualified C++ class name of the GXF component.
-  getNitrosContext().setParameterStr(
-    "pilotnet_decoder", "nvidia::isaac_ros::PilotNetDecoder", "tensor_name", tensor_name_);
-  getNitrosContext().setParameterFloat64(
-    "pilotnet_decoder", "nvidia::isaac_ros::PilotNetDecoder", "steer_scale", steer_scale_);
-  getNitrosContext().setParameterFloat64(
-    "pilotnet_decoder", "nvidia::isaac_ros::PilotNetDecoder", "speed_scale", speed_scale_);
+  // 1. 目的のテンソルを名前で探す
+  const auto & tensors = msg->tensors;
+  auto it = std::find_if(
+    tensors.begin(), tensors.end(),
+    [this](const auto & tensor) {
+      return tensor.name == tensor_name_;
+    });
+
+  if (it == tensors.end()) {
+    RCLCPP_WARN_ONCE(this->get_logger(), "Tensor '%s' not found.", tensor_name_.c_str());
+    return;
+  }
+  const auto & target_tensor = *it;
+
+  // 2. テンソルからデータを読み取る (データはCPU上にあります)
+  const float * control_outputs = reinterpret_cast<const float *>(target_tensor.data.data());
+
+  // 3. AckermannDriveメッセージを作成して発行
+  auto ackermann_msg = std::make_unique<ackermann_msgs::msg::AckermannDrive>();
+  ackermann_msg->header = msg->header;  // タイムスタンプを引き継ぐ
+  ackermann_msg->steering_angle = control_outputs[0] * steer_scale_;
+  ackermann_msg->speed = control_outputs[1] * speed_scale_;
+  ackermann_pub_->publish(std::move(ackermann_msg));
 }
 
 }  // namespace pilot_net
 }  // namespace isaac_ros
 }  // namespace nvidia
 
-// Register the node as a component
 RCLCPP_COMPONENTS_REGISTER_NODE(nvidia::isaac_ros::pilot_net::PilotNetDecoderNode)

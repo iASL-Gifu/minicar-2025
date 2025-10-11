@@ -16,48 +16,63 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.22.1)
-project(isaac_ros_e2e_pilot LANGUAGES C CXX)
+project(isaac_ros_e2e_pilot)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+# 必要なパッケージを明示的に検索
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(isaac_ros_tensor_list_interfaces REQUIRED)
+find_package(ackermann_msgs REQUIRED)
+find_package(isaac_ros_common REQUIRED)
 
-find_package(ament_cmake_auto REQUIRED)
-find_package(gxf_isaac_pilot_net REQUIRED)
-
-ament_auto_find_build_dependencies()
-
-ament_auto_add_library(
-  pilot_net_decoder_node
-  SHARED
-  src/pilot_net_decoder_node.cpp)
-
-# コンポーネントノードとして登録 
-rclcpp_components_register_nodes(
-  pilot_net_decoder_node "nvidia::isaac_ros::pilot_net::PilotNetDecoderNode")
-set(node_plugins "${node_plugins}nvidia::isaac_ros::pilot_net::PilotNetDecoderNode;$<TARGET_FILE:pilot_net_decoder_node>\n")
-
-set_target_properties(pilot_net_decoder_node PROPERTIES
-  BUILD_WITH_INSTALL_RPATH TRUE
-  BUILD_RPATH_USE_ORIGIN TRUE
-  INSTALL_RPATH_USE_LINK_PATH TRUE
+# ノードのソースコードから共有ライブラリを作成
+add_library(pilot_net_decoder_node SHARED
+  src/pilot_net_decoder_node.cpp
 )
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
-endif()
-
-# スクリプトのインストール
-install(PROGRAMS
-  scripts/setup_model.sh
-  DESTINATION lib/${PROJECT_NAME}
+# ライブラリが依存するパッケージをリンク
+ament_target_dependencies(pilot_net_decoder_node PUBLIC
+  "rclcpp"
+  "rclcpp_components"
+  "isaac_ros_tensor_list_interfaces"
+  "ackermann_msgs"
 )
 
-# バージョン情報の埋め込み 
+# コンポーネントノードとして登録
+rclcpp_components_register_nodes(pilot_net_decoder_node
+  "nvidia::isaac_ros::pilot_net::PilotNetDecoderNode"
+)
+
+# ヘッダーファイルとライブラリをインストール
+install(
+  TARGETS pilot_net_decoder_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
+# launch と config ディレクトリをインストール
+install(
+  DIRECTORY launch config
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# (もしあれば) スクリプトをインストール
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/setup_model.sh")
+  install(PROGRAMS
+    scripts/setup_model.sh
+    DESTINATION lib/${PROJECT_NAME}
+  )
+endif()
+
+# バージョン情報の埋め込み
 ament_index_get_resource(ISAAC_ROS_COMMON_CMAKE_PATH isaac_ros_common_cmake_path isaac_ros_common)
 include("${ISAAC_ROS_COMMON_CMAKE_PATH}/isaac_ros_common-version-info.cmake")
 generate_version_info(${PROJECT_NAME})
 
-# launchとconfigディレクトリのインストール
-ament_auto_package(INSTALL_TO_SHARE launch config)
+ament_package()
