@@ -47,7 +47,19 @@ sudo apt install cuda-toolkit-12-6
 UNDER_CONSTRUCTION ...
 ```
 
-## scripts
+## setup for realsense
+```bash
+git clone https://github.com/jetsonhacks/jetson-orin-librealsense.git
+cd jetson-orin-librealsense
+tar -xzf install-modules.tar.gz
+cd install-modules
+sudo ./install-realsense-modules.sh
+# クリーンアップ
+cd /tmp
+rm -rf jetson-orin-librealsense
+```
+
+# scripts
 
 ## hotspot
 ```bash
@@ -90,10 +102,7 @@ cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common && \
 cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common && \
 ./scripts/run_dev.sh 
 
-## build
-cd ${ISAAC_ROS_WS}/ && \
-   colcon build --symlink-install --packages-up-to isaac_ros_visual_slam --base-paths ${ISAAC_ROS_WS}/src/isaac_ros_visual_slam/isaac_ros_visual_slam
-
+## example launch
 source install/setup.bash
 ros2 launch isaac_ros_examples isaac_ros_examples.launch.py launch_fragments:=realsense_stereo_rect,visual_slam \
 interface_specs_file:=${ISAAC_ROS_WS}/isaac_ros_assets/isaac_ros_visual_slam/quickstart_interface_specs.json \
