@@ -15,15 +15,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "isaac_ros_e2e_pilot/pilot_net_decoder_node.hpp" 
-
-#include <string>
-#include <vector>
-#include <algorithm> 
-#include <memory>    
-
-#include <cuda_runtime.h>
-
+#include "isaac_ros_e2e_pilot/pilot_net_decoder_node.hpp"
+#include <algorithm>
 #include "rclcpp_components/register_node_macro.hpp"
 
 namespace nvidia
@@ -33,83 +26,56 @@ namespace isaac_ros
 namespace pilot_net
 {
 
-PilotNetDecoderNode::PilotNetDecoderNode(const rclcpp::NodeOptions options)
-: rclcpp::Node("pilot_net_decoder_node", options) 
+PilotNetDecoderNode::PilotNetDecoderNode(const rclcpp::NodeOptions & options)
+: rclcpp::Node("pilot_net_decoder_node", options)
 {
-  // Initialize the NITROS subscriber
-  nitros_sub_ = std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-        nvidia::isaac_ros::nitros::NitrosTensorListView>>(
-      this,
-      "tensor_sub",  // Input topic name
-      nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
-      std::bind(&PilotNetDecoderNode::InputCallback, this, std::placeholders::_1));
+  // ROSパラメータの宣言と取得
+  tensor_name_ = this->declare_parameter<std::string>("tensor_name", "output_tensor");
+  steer_scale_ = this->declare_parameter<double>("steer_scale", 1.0);
+  speed_scale_ = this->declare_parameter<double>("speed_scale", 1.0);
 
-  // Initialize the Ackermann publisher
-  pub_control_ = create_publisher<ackermann_msgs::msg::AckermannDrive>(
-      "cmd_ackermann", 10);  // Output topic name
+  // 通常のROS 2 Publisherを作成
+  ackermann_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(
+    "/cmd_ackermann", 10);
 
-  // Declare and get parameters
-  tensor_name_ = declare_parameter<std::string>("tensor_name", "output_tensor");
-  steer_scale_ = declare_parameter<double>("steer_scale", 1.0);
-  speed_scale_ = declare_parameter<double>("speed_scale", 1.0);
+  // 推論結果のTensorListトピックを購読するSubscriberを作成
+  tensor_sub_ = this->create_subscription<isaac_ros_tensor_list_interfaces::msg::TensorList>(
+    "/tensor_out", 10,  // 推論ノードの出力トピック名に合わせる
+    std::bind(&PilotNetDecoderNode::tensorCallback, this, std::placeholders::_1));
 
-  RCLCPP_INFO(this->get_logger(), "PilotNet Decoder Node has been initialized.");
+  RCLCPP_INFO(this->get_logger(), "Simple PilotNet Decoder Node has been initialized.");
 }
 
-PilotNetDecoderNode::~PilotNetDecoderNode() = default;
-
-void PilotNetDecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg)
+void PilotNetDecoderNode::tensorCallback(
+  const isaac_ros_tensor_list_interfaces::msg::TensorList::SharedPtr msg)
 {
-  // 1. Get the tensor from the message by its name
-  auto tensor = msg.GetNamedTensor(tensor_name_);
+  // 1. 目的のテンソルを名前で探す
+  const auto & tensors = msg->tensors;
+  auto it = std::find_if(
+    tensors.begin(), tensors.end(),
+    [this](const auto & tensor) {
+      return tensor.name == tensor_name_;
+    });
 
-  // Assuming the model's output is two float values: [steer, speed]
-  const size_t expected_size_bytes = 2 * sizeof(float);
-  if (tensor.GetTensorSize() != expected_size_bytes) {
-    RCLCPP_ERROR_ONCE(
-      this->get_logger(), "Expected tensor size %zu bytes, but got %zu bytes. Check model output.",
-      expected_size_bytes, tensor.GetTensorSize());
+  if (it == tensors.end()) {
+    RCLCPP_WARN_ONCE(this->get_logger(), "Tensor '%s' not found.", tensor_name_.c_str());
     return;
   }
+  const auto & target_tensor = *it;
 
-  // 2. Copy the tensor data from GPU memory to a CPU vector
-  std::vector<float> control_values(2);
-  cudaError_t cuda_status = cudaMemcpy(
-    control_values.data(), tensor.GetBuffer(), tensor.GetTensorSize(), cudaMemcpyDeviceToHost);
+  // 2. テンソルからデータを読み取る (データはCPU上にあります)
+  const float * control_outputs = reinterpret_cast<const float *>(target_tensor.data.data());
 
-  if (cuda_status != cudaSuccess) {
-    RCLCPP_ERROR(
-      this->get_logger(), "Failed to copy tensor data from GPU to CPU: %s",
-      cudaGetErrorString(cuda_status));
-    return;
-  }
-
-  // 3. Extract steer and speed values
-  float steer = control_values[0];
-  float speed = control_values[1];
-
-  // 4. Apply scaling factors from parameters
-  float scaled_steer = steer * steer_scale_;
-  float scaled_speed = speed * speed_scale_;
-
-  // 5. Clamp the values to the range [-1.0, 1.0]
-  float clamped_steer = std::clamp(scaled_steer, -1.0f, 1.0f);
-  float clamped_speed = std::clamp(scaled_speed, -1.0f, 1.0f);
-
-  // 6. Create the AckermannDrive message
-  auto ackermann_msg = ackermann_msgs::msg::AckermannDrive();
-  ackermann_msg.header.stamp = msg.GetTimestamp();
-  ackermann_msg.header.frame_id = "base_link"; 
-  ackermann_msg.steering_angle = clamped_steer;
-  ackermann_msg.speed = clamped_speed;
-
-  // 7. Publish the control message
-  pub_control_->publish(ackermann_msg);
+  // 3. AckermannDriveメッセージを作成して発行
+  auto ackermann_msg = std::make_unique<ackermann_msgs::msg::AckermannDriveStamped>();
+  ackermann_msg->header = msg->header;  // タイムスタンプを引き継ぐ
+  ackermann_msg->drive.steering_angle = control_outputs[0] * steer_scale_;
+  ackermann_msg->drive.speed = control_outputs[1] * speed_scale_;
+  ackermann_pub_->publish(std::move(ackermann_msg));
 }
 
 }  // namespace pilot_net
 }  // namespace isaac_ros
 }  // namespace nvidia
 
-// Register the node as a component
 RCLCPP_COMPONENTS_REGISTER_NODE(nvidia::isaac_ros::pilot_net::PilotNetDecoderNode)

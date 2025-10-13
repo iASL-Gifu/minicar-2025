@@ -15,17 +15,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef ISAAC_ROS_PILOT_NET__PILOT_NET_DECODER_NODE_HPP_
-#define ISAAC_ROS_PILOT_NET__PILOT_NET_DECODER_NODE_HPP_
-
-#include <memory>
-#include <string>
-#include <vector>
+#ifndef ISAAC_ROS_E2E_PILOT__PILOT_NET_DECODER_NODE_HPP_
+#define ISAAC_ROS_E2E_PILOT__PILOT_NET_DECODER_NODE_HPP_
 
 #include "rclcpp/rclcpp.hpp"
-#include "isaac_ros_nitros/managed_nitros_subscriber.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_view.hpp"
-#include "ackermann_msgs/msg/ackermann_drive.hpp"
+#include "isaac_ros_tensor_list_interfaces/msg/tensor_list.hpp"
+#include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
+#include <string>
 
 namespace nvidia
 {
@@ -38,27 +34,22 @@ class PilotNetDecoderNode : public rclcpp::Node
 {
 public:
   explicit PilotNetDecoderNode(const rclcpp::NodeOptions & options);
-  ~PilotNetDecoderNode();
 
 private:
-  // Callback function to process incoming tensors
-  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg);
-
-  // NITROS-aware subscriber for tensor lists
-  std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-      nvidia::isaac_ros::nitros::NitrosTensorListView>> nitros_sub_;
-
-  // Publisher for the final Ackermann control command
-  rclcpp::Publisher<ackermann_msgs::msg::AckermannDrive>::SharedPtr pub_control_;
+  void tensorCallback(const isaac_ros_tensor_list_interfaces::msg::TensorList::SharedPtr msg);
 
   // Parameters
   std::string tensor_name_;
   double steer_scale_;
   double speed_scale_;
+
+  // Publisher and Subscriber
+  rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_pub_;
+  rclcpp::Subscription<isaac_ros_tensor_list_interfaces::msg::TensorList>::SharedPtr tensor_sub_;
 };
 
 }  // namespace pilot_net
 }  // namespace isaac_ros
 }  // namespace nvidia
 
-#endif  // ISAAC_ROS_PILOT_NET__PILOT_NET_DECODER_NODE_HPP_
+#endif  // ISAAC_ROS_E2E_PILOT__PILOT_NET_DECODER_NODE_HPP_

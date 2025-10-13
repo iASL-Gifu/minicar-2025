@@ -1,0 +1,8 @@
+numpy
+omegaconf
+hydra-core
+torch
+tqdm
+opencv-python
+tensorboard
+onnx

@@ -11,20 +11,7 @@ cd minicar-2025
 vcs import < packages.repos
 ```
 
-## 2. setup for jetracer
-```bash
-sudo apt install python3-pip
-sudo pip3 install -U jetson-stats
-
-mkdir lib
-cd lib 
-git clone https://github.com/NVIDIA-AI-IOT/jetracer.git
-cd jetracer
-sudo python3 setup.py install
-pip3 install traitlets questionary
-```
-
-## setup for ISAAC ROS on Jetson Orin Nano 8GB
+## 2. setup for ISAAC ROS on Jetson Orin Nano 8GB
 ```bash
 ## jetson clocks
 sudo /usr/bin/jetson_clocks
@@ -38,7 +25,7 @@ sudo apt-get install git-lfs
 git lfs install --skip-repo
 
 ## workspaceの設定
-echo "export ISAAC_ROS_WS=${HOME}/workspace/minicar-2025/ros2_ws/src/isaac_ros" >> ~/.bashrc
+echo "export ISAAC_ROS_WS=${HOME}/workspace/minicar-2025/ros2_ws/" >> ~/.bashrc
 source ~/.bashrc
 
 ## VPI(Vision Programming Interface)
@@ -69,8 +56,9 @@ bash hotspot.sh wlan0 tamiya22 tamiya22
 
 ## bluetooth
 ```bash
-## A0:AB:51:5F:62:86にbluetooth接続をする
 bash bluetooth.sh <MAC_ADDRESS>
+## A0:AB:51:5F:62:86にbluetooth接続をする
+bash bluetooth.sh A0:AB:51:5F:62:86
 ```
 
 ## tmux
@@ -81,15 +69,15 @@ bash tmux.sh <session_name>
 ## docker run
 ```bash
 ## setting
-cd ${ISAAC_ROS_WS}/src/isaac_ros_common/scripts && \
+cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common/scripts && \
 cat > .isaac_ros_common-config << EOF
 CONFIG_IMAGE_KEY=ros2_humble.realsense.cyclone_dds.isaac_ros_preset
 CONFIG_DOCKER_SEARCH_DIRS=("../docker/")
 EOF
 
 ## run
-cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
-./scripts/run_dev.sh -d ${ISAAC_ROS_WS}
+cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common && \
+./scripts/run_dev.sh 
 ```
 
 # run
@@ -99,12 +87,8 @@ cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
 ### 1. terminal 1 実行
 ```bash
 ## docker run
-cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
-./scripts/run_dev.sh -d ${ISAAC_ROS_WS}
-
-sudo apt-get update
-sudo apt-get install -y ros-humble-isaac-ros-examples ros-humble-isaac-ros-realsense
-rosdep update && rosdep install --from-paths ${ISAAC_ROS_WS}/src/isaac_ros_visual_slam/isaac_ros_visual_slam --ignore-src -y
+cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common && \
+./scripts/run_dev.sh 
 
 ## build
 cd ${ISAAC_ROS_WS}/ && \
@@ -119,8 +103,7 @@ base_frame:=camera_link camera_optical_frames:="['camera_infra1_optical_frame', 
 ### 2. terminal 2 可視化
 ```bash
 ## docker run
-cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
-./scripts/run_dev.sh -d ${ISAAC_ROS_WS}
-
+cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common && \
+./scripts/run_dev.sh 
 rviz2 -d $(ros2 pkg prefix isaac_ros_visual_slam --share)/rviz/default.cfg.rviz
 ```

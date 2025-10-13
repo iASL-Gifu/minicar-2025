@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # config/params.yaml
-pilot_net_decoder_node:
+/**:
   ros__parameters:
     # 推論ノードが出力するテンソルの名前
     tensor_name: "output_tensor"

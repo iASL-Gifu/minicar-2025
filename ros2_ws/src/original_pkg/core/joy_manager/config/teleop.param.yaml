@@ -7,7 +7,7 @@
 
     # --- 軸設定 ---
     speed_axis_index:    1  # 左スティック上下で速度制御 humble: 1
-    steer_axis_index:    3  # 右スティック左右でステア制御 humble: 3
+    steer_axis_index:    2  # 右スティック左右でステア制御 humble: 2
 
     # --- モード切替ボタン ---
     joy_button_index:     3   # △ボタンで手動モード humble: 3, foxy: 2
