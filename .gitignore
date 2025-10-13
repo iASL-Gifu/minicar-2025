@@ -137,3 +137,6 @@ ros2_ws/src/rtabmap_ros/
 ros2_ws/build/
 ros2_ws/log/
 ros2_ws/install/
+
+# Isaac ROS Visual SLAM map database files
+ros2_ws/src/launch/localization_launch/map/*.mdb
