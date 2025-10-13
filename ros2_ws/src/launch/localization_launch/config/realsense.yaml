@@ -1,0 +1,56 @@
+/**:
+  ros__parameters:
+    device_type: ''
+    serial_no: ''
+    usb_port_id: ''
+    
+    # センサーの有効/無効
+    enable_accel: false
+    enable_color: false
+    enable_depth: false
+    enable_rgbd: false
+    enable_gyro: false
+    enable_infra1: true
+    enable_infra2: true
+    
+    # IMU設定
+    accel_fps: 250 # 63 or 250
+    gyro_fps: 400 # 200 or 400
+    unite_imu_method: 2
+    
+    # QoS設定
+    depth_qos: "SYSTEM_DEFAULT"
+    
+    # 深度モジュール設定
+    depth_module:
+      infra_profile: '848x480x30'
+      emitter_enabled: 0
+      emitter_on_off: false
+    
+    # ポイントクラウド無効化
+    pointcloud__neon_:
+      enable: false
+    
+    # フィルター無効化（不要な処理を省く）
+    align_depth:
+      enable: false
+    colorizer:
+      enable: false
+    decimation_filter:
+      enable: false
+    spatial_filter:
+      enable: false
+    temporal_filter:
+      enable: false
+    hole_filling_filter:
+      enable: false
+    
+    # 画像転送プラグイン無効化
+    # 'image_transport/compressedDepth', 'image_transport/compressed', 'image_transport/raw', 'image_transport/theora'
+    realsense2_camera:
+      infra1:
+        image_rect_raw:
+          enable_pub_plugins: ['image_transport/raw']
+      infra2:
+        image_rect_raw:
+          enable_pub_plugins: ['image_transport/raw']
