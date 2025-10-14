@@ -44,7 +44,8 @@ sudo apt-get install -y pva-allow-2
 ## CUDA 12.6
 sudo apt install cuda-toolkit-12-6
 
-UNDER_CONSTRUCTION ...
+## torch torchvision tensorRT
+pip install torch==2.8.0 torchvision==0.23.0 torch-tensorrt==2.8.0+cu126 --index-url=https://pypi.jetson-ai-lab.io/jp6/cu126
 ```
 
 ## setup for realsense
