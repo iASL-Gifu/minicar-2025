@@ -22,7 +22,7 @@ public:
   {
     // === パラメータの宣言と取得 ===
     this->declare_parameter<std::string>("output_dir", ".");
-    this.declare_parameter<bool>("all_topics", false);
+    this->declare_parameter<bool>("all_topics", false);
     this->declare_parameter<std::vector<std::string>>("topics", std::vector<std::string>());
 
     output_dir_ = this->get_parameter("output_dir").as_string();
