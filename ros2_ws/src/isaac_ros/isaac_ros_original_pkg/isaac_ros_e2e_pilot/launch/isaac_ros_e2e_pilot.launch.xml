@@ -1,25 +1,53 @@
 <launch>
-    <arg name="input_tensor_topic" default="/pilot_net/inference_result" 
-         description="Input tensor topic from the inference node"/>
+    <arg name="input_image_topic" default="/image_raw" />
+    <arg name="input_camera_info_topic" default="/camera_info" />
+    <arg name="output_cmd_topic" default="/ackermann_cmd" />
+    <arg name="model_repository_path" default="ABSOLUTE_PATH_TO_YOUR_MODELS" />
+    <arg name="model_name" default="pilotnet" />
+    <arg name="container_name" default="pilot_net_container" />
 
-    <arg name="output_cmd_topic" default="/ackermann_cmd" 
-         description="Output Ackermann command topic"/>
 
-    <arg name="container_name" default="pilot_decoder_container" 
-         description="Name of the component container"/>
-
-    <node pkg="rclcpp_components" exec="component_container" name="$(var container_name)" 
+    <node pkg="rclcpp_components" exec="component_container" name="$(var container_name)"
           output="screen" namespace=""/>
 
     <load_composable_node target="$(var container_name)">
-        <composable_node pkg="isaac_ros_e2e_pilot" 
+        <composable_node pkg="isaac_ros_dnn_image_encoder"
+                         plugin="nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode"
+                         name="dnn_image_encoder_node">
+            <param name="network_image_width" value="160"/>
+            <param name="network_image_height" value="120"/>
+            <param name="image_mean" value="[0.5, 0.5, 0.5]"/>
+            <param name="image_stddev" value="[0.5, 0.5, 0.5]"/>
+            <param name="enable_padding" value="False"/>
+
+            <remap from="image" to="$(var input_image_topic)"/>
+            <remap from="camera_info" to="$(var input_camera_info_topic)"/>
+            <remap from="tensor" to="/encoder/tensor_pub"/> </composable_node>
+    </load_composable_node>
+
+    <load_composable_node target="$(var container_name)">
+        <composable_node pkg="isaac_ros_triton"
+                         plugin="nvidia::isaac_ros::dnn_inference::TritonNode"
+                         name="triton_node">
+            <param name="model_name" value="$(var model_name)"/>
+            <param name="model_repository_paths" value="['$(var model_repository_path)']"/>
+            <param name="input_tensor_names" value="['input_tensor']"/>
+            <param name="input_binding_names" value="['input_1']"/>
+            <param name="input_tensor_formats" value="['nitros_tensor_list_nchw_rgb_f32']"/>
+            <param name="output_tensor_names" value="['output_tensor']"/>
+            <param name="output_binding_names" value="['output_1']"/>
+            <param name="output_tensor_formats" value="['nitros_tensor_list_nhwc_rgb_f32']"/>
+
+            <remap from="tensor_sub" to="/encoder/tensor_pub"/> <remap from="tensor_pub" to="/pilot_net/inference_result"/> </composable_node>
+    </load_composable_node>
+
+    <load_composable_node target="$(var container_name)">
+        <composable_node pkg="isaac_ros_e2e_pilot"
                          plugin="nvidia::isaac_ros::pilot_net::PilotNetDecoderNode"
                          name="pilot_net_decoder_node">
             <param from="$(find-pkg-share isaac_ros_e2e_pilot)/config/params.yaml"/>
             
-            <remap from="tensor_sub" to="$(var input_tensor_topic)"/>
-            <remap from="cmd_ackermann" to="$(var output_cmd_topic)"/>
-        </composable_node>
+            <remap from="tensor_sub" to="/pilot_net/inference_result"/> <remap from="cmd_ackermann" to="$(var output_cmd_topic)"/> </composable_node>
     </load_composable_node>
 
 </launch>
