@@ -2,4 +2,4 @@
   ros__parameters:
     output_dir: "/workspaces/record/"
     all_topics: true
-    topics: ['/camera/color/image_raw', '/jetracer/cmd_drive']
+    topics: ['/jetracer/cmd_drive']
