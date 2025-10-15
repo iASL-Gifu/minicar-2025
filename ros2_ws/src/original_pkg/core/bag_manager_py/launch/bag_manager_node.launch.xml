@@ -1,0 +1,22 @@
+<launch>
+
+  <arg name="input_trigger_topic" default="/rosbag2_recorder/trigger"/>
+<<<<<<< HEAD:ros2_ws/src/original_pkg/core/bag_manager_py/launch/bag_manager_node.launch.xml
+  <arg name="bag_manager_param"  default="$(find-pkg-share bag_manager_py)/config/bag_manager.param.yaml"/>
+=======
+  <arg name="bag_recorder_param"  default="$(find-pkg-share bag_manager_cpp)/config/bag_recoder.param.yaml"/>
+>>>>>>> localization:ros2_ws/src/original_pkg/core/bag_manager_cpp/launch/bag_recoder.launch.xml
+  <!-- bag_manager node -->
+  <node pkg="bag_manager_py" 
+        exec="bag_manager_node"
+        name="bag_manager_node"
+        output="screen">
+
+    <!-- パラメータ -->
+    <param from="$(var bag_manager_param)"/>
+    <!-- トピックのremap -->
+    <remap from="/rosbag2_recorder/trigger" to="$(var input_trigger_topic)"/>
+  </node>
+
+
+</launch>
