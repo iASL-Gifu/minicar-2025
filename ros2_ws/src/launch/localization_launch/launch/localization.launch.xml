@@ -1,6 +1,6 @@
 <launch>
     <!-- GPU上で確保するメモリサイズ -->
-    <arg name="camera_width" default="848" />
+    <arg name="camera_width" default="640" />
     <arg name="camera_height" default="480" />
     <arg name="realsense_config_file" default="$(find-pkg-share localization_launch)/config/realsense.yaml" />
     <arg name="vslam_config_file" default="$(find-pkg-share localization_launch)/config/vslam.yaml" />

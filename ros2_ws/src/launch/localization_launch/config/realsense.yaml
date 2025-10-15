@@ -20,10 +20,13 @@
     
     # QoS設定
     depth_qos: "SYSTEM_DEFAULT"
+
+    rgb_camera:
+      color_profile: 640x480x30
     
     # 深度モジュール設定
     depth_module:
-      infra_profile: '848x480x30'
+      infra_profile: '640x480x90'
       emitter_enabled: 0
       emitter_on_off: false
     
