@@ -9,7 +9,6 @@
 
   <depend>rclpy</depend>
   <depend>realsense2_camera</depend>
-  <depend>urg_node</depend>
   <depend>ackermann_msgs</depend>
 
 
