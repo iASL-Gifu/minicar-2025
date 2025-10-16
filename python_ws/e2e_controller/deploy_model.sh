@@ -56,7 +56,7 @@ function setup_model() {
   fi
 
   # Set the output directory for the model assets
-  local output_path="${ISAAC_ROS_WS}/isaac_ros_assets/models/${MODEL_NAME}"
+  local output_path="/workspaces/isaac_ros_assets/models/${MODEL_NAME}"
   
   # Find the next available version number to avoid overwriting
   local version=1
