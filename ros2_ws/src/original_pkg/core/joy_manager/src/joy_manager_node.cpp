@@ -63,7 +63,7 @@ public:
     // --- サブスクライバ／パブリッシャ設定 ---
     joy_sub_ = create_subscription<sensor_msgs::msg::Joy>(
       "/joy", 10, std::bind(&JoyManagerNode::joy_callback, this, _1));
-    ack_sub_ = create_subscription<ackermann_msgs::msg::AckermannDrive>(
+    ack_sub_ = create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
       "/ackermann_cmd", 10, std::bind(&JoyManagerNode::ack_callback, this, _1));
 
     drive_pub_ = create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/cmd_drive", 10);
@@ -165,9 +165,9 @@ private:
     }
   }
 
-  void ack_callback(const ackermann_msgs::msg::AckermannDrive::SharedPtr msg)
+  void ack_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
   {
-    last_autonomy_msg_ = *msg;
+    last_autonomy_msg_ = msg->drive; 
   }
 
   void timer_callback()
@@ -200,7 +200,7 @@ private:
 
   // --- メンバ変数 ---
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr           joy_sub_;
-  rclcpp::Subscription<ackermann_msgs::msg::AckermannDrive>::SharedPtr ack_sub_;
+  rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ack_sub_;
   rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr                trigger_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr                steer_inc_pub_;
