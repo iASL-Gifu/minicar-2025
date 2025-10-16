@@ -5,11 +5,11 @@
     usb_port_id: ''
     
     # センサーの有効/無効
-    enable_accel: false
-    enable_color: false
-    enable_depth: false
+    enable_accel: true
+    enable_gyro: true
+    enable_color: true
+    enable_depth: true
     enable_rgbd: false
-    enable_gyro: false
     enable_infra1: true
     enable_infra2: true
     
@@ -20,9 +20,14 @@
     
     # QoS設定
     depth_qos: "SYSTEM_DEFAULT"
+
+    # RGBモジュール設定
+    rgb_camera:
+      color_prifile: '640x480x30'
     
     # 深度モジュール設定
     depth_module:
+      depth_profile: '848x480x30'
       infra_profile: '848x480x30'
       emitter_enabled: 0
       emitter_on_off: false
