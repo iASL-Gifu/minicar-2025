@@ -21,23 +21,19 @@ public:
   AckermannFilterNode()
   : Node("ackermann_filter_node")
   {
-    // === パラメータの宣言 (ネスト構造に対応) ===
     this->declare_parameter<std::string>("filter_type", "none");
     this->declare_parameter<int>("window_size", 5);
     this->declare_parameter<bool>("use_scale_filter", true);
     this->declare_parameter<std::string>("scale_filter_type", "normal");
 
-    // normalモード用のパラメータ
     this->declare_parameter<double>("normal.speed_scale_ratio", 1.0);
     this->declare_parameter<double>("normal.steer_scale_ratio", 1.0);
 
-    // advanceモード用のパラメータ
     this->declare_parameter<double>("advance.straight_steer_threshold", 0.1);
     this->declare_parameter<double>("advance.straight_speed_scale_ratio", 1.0);
     this->declare_parameter<double>("advance.cornering_speed_scale_ratio", 0.5);
     this->declare_parameter<double>("advance.steer_scale_ratio", 1.0);
     
-    // === パラメータの初期値を取得 (分離したメンバ変数へ) ===
     this->get_parameter("filter_type", filter_type_);
     this->get_parameter("window_size", window_size_);
     this->get_parameter("use_scale_filter", use_scale_filter_);
@@ -51,14 +47,11 @@ public:
     this->get_parameter("advance.cornering_speed_scale_ratio", advance_cornering_speed_scale_ratio_);
     this->get_parameter("advance.steer_scale_ratio", advance_steer_scale_ratio_);
 
-    // 起動時のパラメータ情報を表示
     print_parameters();
 
-    // 動的パラメータ変更のためのコールバックを登録
     parameters_callback_handle_ = this->add_on_set_parameters_callback(
       std::bind(&AckermannFilterNode::parameters_callback, this, std::placeholders::_1));
 
-    // PublisherとSubscriberの初期化
     publisher_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(OUTPUT_TOPIC, 10);
     subscription_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
       INPUT_TOPIC, 10, std::bind(&AckermannFilterNode::topic_callback, this, std::placeholders::_1));
@@ -67,20 +60,16 @@ public:
 private:
   void topic_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
   {
-    // drive メンバーから値を取得
     speed_buffer_.push_back(msg->drive.speed);
     steering_angle_buffer_.push_back(msg->drive.steering_angle);
 
-    // バッファサイズの管理 
     while (speed_buffer_.size() > static_cast<size_t>(window_size_)) {
       speed_buffer_.pop_front();
       steering_angle_buffer_.pop_front();
     }
 
-    // フィルター処理用のローカル変数 
     auto filtered_drive_data = ackermann_msgs::msg::AckermannDrive();
     
-    // 既存のフィルター処理を filtered_drive_data に対して実行
     if (filter_type_ == "average") {
       apply_average_filter(filtered_drive_data);
     } else if (filter_type_ == "median") {
@@ -120,7 +109,6 @@ private:
       const std::string param_name = param.get_name();
       RCLCPP_INFO(this->get_logger(), "Parameter '%s' changed.", param_name.c_str());
 
-      // === パラメータ名チェックをネスト構造に対応 ===
       if (param_name == "filter_type") {
         filter_type_ = param.as_string();
       } else if (param_name == "window_size") {
@@ -162,7 +150,6 @@ private:
 
     if (use_scale_filter_){
       RCLCPP_INFO(this->get_logger(), "Scale filter type: %s", scale_filter_type_.c_str());
-      // === ログ表示を新しい変数に対応 ===
       if (scale_filter_type_ == "advance") {
           RCLCPP_INFO(this->get_logger(), "  [advance] Straight steer threshold: %.2f rad", advance_straight_steer_threshold_);
           RCLCPP_INFO(this->get_logger(), "  [advance] Straight speed scale ratio: %.2f", advance_straight_speed_scale_ratio_);
@@ -194,7 +181,6 @@ private:
     }
     msg.steering_angle *= advance_steer_scale_ratio_;
 
-    // ★ 修正点: 0.0, 1.0, -1.0 を float型リテラル (f付き) に変更
     msg.speed = std::max(0.0f, std::min(msg.speed, 1.0f));
     msg.steering_angle = std::max(-1.0f, std::min(msg.steering_angle, 1.0f));
   }
@@ -225,30 +211,24 @@ private:
         return sorted_data[n / 2];
     }
   }
-  // --- ここまで変更のないヘルパー関数 ---
 
-  rclcpp::Subscription<ackermann_msgs::msg::AckermannDrive>::SharedPtr subscription_;
-  rclcpp::Publisher<ackermann_msgs::msg::AckermannDrive>::SharedPtr publisher_;
+  rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr subscription_;
+  rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr publisher_;
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_handle_;
   
-  // === メンバ変数をモードごとに分離 ===
-  // 一般設定
   std::string filter_type_;
   int window_size_;
   bool use_scale_filter_;
   std::string scale_filter_type_;
 
-  // normalモード用パラメータ
   double normal_speed_scale_ratio_;
   double normal_steer_scale_ratio_;
   
-  // advanceモード用パラメータ
   double advance_straight_steer_threshold_;
   double advance_straight_speed_scale_ratio_;
   double advance_cornering_speed_scale_ratio_;
   double advance_steer_scale_ratio_;
 
-  // データバッファ
   std::deque<double> speed_buffer_;
   std::deque<double> steering_angle_buffer_;
 };
