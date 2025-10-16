@@ -1,0 +1,28 @@
+ckpt_path: /home/arata-22/project/competition/minicar-2025/python_ws/path_planner/ckpts/train/2025-10-17/06-39-00/best_model.pth
+dataset_dir: ./datasets/train/
+output_dir: ./outputs/analyze/${now:%Y-%m-%d}/${now:%H-%M-%S}
+device: "cuda"
+
+dataset:
+  image_height: 120
+  image_width: 160
+  past_len: 5          # 過去オドメトリの履歴長
+  future_len: 10       # 未来軌跡の長さ
+  transform_mode: "tensor"
+
+
+model:
+  image_embedding_dim: 128
+  motion_embedding_dim: 64
+  d_model: 192
+  transformer_nhead: 6
+  transformer_num_layers: 2
+  odom_dim: 8
+  future_out_dim: 3
+
+training:
+  num_workers: 16
+  
+hydra:
+  run:
+    dir: ./outputs/analyze/${now:%Y-%m-%d}/${now:%H-%M-%S}
