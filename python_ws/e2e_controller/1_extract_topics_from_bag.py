@@ -15,7 +15,7 @@ def extract_and_save_per_bag(bag_path, output_dir, image_topic, cmd_topic, odom_
 
     image_data, image_times = [], []
     cmd_data, cmd_times = [], []
-    odom_data, odom_times = [], []  # オドメトリデータを格納するリストを追加
+    odom_data, odom_times = [], [] 
 
     with AnyReader([bag_path]) as reader:
         # 読み込むトピックにオドメトリのトピックを追加
@@ -44,7 +44,6 @@ def extract_and_save_per_bag(bag_path, output_dir, image_topic, cmd_topic, odom_
                 cmd_data.append(np.array([msg.drive.steering_angle, msg.drive.speed], dtype=np.float32))
                 cmd_times.append(timestamp)
             
-            # === Odometryメッセージを処理するブロックを追加 ===
             elif conn.topic == odom_topic and conn.msgtype == 'nav_msgs/msg/Odometry':
                 pose = msg.pose.pose
                 # 位置(x, y, z)と姿勢(quaternion: x, y, z, w)を抽出
@@ -63,9 +62,9 @@ def extract_and_save_per_bag(bag_path, output_dir, image_topic, cmd_topic, odom_
 
     image_times = np.array(image_times)
     cmd_data, cmd_times = np.array(cmd_data), np.array(cmd_times)
-    odom_data, odom_times = np.array(odom_data), np.array(odom_times) # オドメトリデータをNumpy配列に変換
+    odom_data, odom_times = np.array(odom_data), np.array(odom_times)
 
-    synced_images, synced_steers, synced_speeds, synced_odoms = [], [], [], [] # 同期後のオドメトリ用リストを追加
+    synced_images, synced_steers, synced_speeds, synced_odoms = [], [], [], [] 
 
     # 画像のタイムスタンプを基準に、最も近い時刻の制御指令とオドメトリを同期
     for i, itime in enumerate(image_times):
