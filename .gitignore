@@ -1,5 +1,6 @@
 record/
 isaac_ros_assets/
+ckpts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
