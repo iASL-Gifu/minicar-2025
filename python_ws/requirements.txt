@@ -3,7 +3,10 @@ scipy
 omegaconf
 hydra-core
 torch
+torchvision
 tqdm
 opencv-python
 tensorboard
 onnx
+onnxscript
+scikit-learn

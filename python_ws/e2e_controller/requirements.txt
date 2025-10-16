@@ -2,7 +2,11 @@ numpy
 omegaconf
 hydra-core
 torch
+torchvision
 tqdm
 opencv-python
 tensorboard
 onnx
+onnxscript
+matplotlib
+scikit-learn

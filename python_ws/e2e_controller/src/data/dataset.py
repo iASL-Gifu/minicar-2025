@@ -87,13 +87,6 @@ class RecordingSequenceDataset(Dataset):
         steers_tensor_seq = torch.tensor(steers_seq, dtype=torch.float32)
         speeds_tensor_seq = torch.tensor(speeds_seq, dtype=torch.float32)
         odoms_tensor_seq = torch.tensor(odoms_seq, dtype=torch.float32)
-        
-        # シーケンス長が1の場合は、次元を削除して単一のデータとして扱う
-        if self.sequence_length == 1:
-            image_tensor_seq = image_tensor_seq.squeeze(0)
-            steers_tensor_seq = steers_tensor_seq.squeeze(0)
-            speeds_tensor_seq = speeds_tensor_seq.squeeze(0)
-            odoms_tensor_seq = odoms_tensor_seq.squeeze(0)
 
         # === 戻り値を辞書形式に変更 ===
         return {

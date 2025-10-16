@@ -1,7 +1,8 @@
-./ckpts
-./dataset
-./outputs
-./logs
+ckpts/
+dataset/
+datasets/
+outputs/
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

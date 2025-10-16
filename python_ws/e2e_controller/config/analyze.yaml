@@ -1,5 +1,5 @@
 # --- データ関連の設定 ---
-data_path: "./dataset/extracted/"
+data_path: "./datasets/"
 
 # --- データセットと変換の設定 ---
 dataset:
@@ -7,6 +7,7 @@ dataset:
   image_height: 120
   image_width: 160
   train_val_split_ratio: 0.8
+  transform_mode: "tensor"  # 'numpy'(最速), 'tensor'(高速), 'pil'(低速) から選択
 
 # --- モデルのパラメータ ---
 model:

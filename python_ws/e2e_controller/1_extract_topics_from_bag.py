@@ -108,8 +108,8 @@ def extract_all_bags_in_dir(bags_dir, output_dir, image_topic, cmd_topic, odom_t
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Extract and synchronize image, command, and odometry data from rosbags.')
-    parser.add_argument('--bags_dir', required=True, help='Path to directory containing rosbag folders')
-    parser.add_argument('--outdir', required=True, help='Output root directory')
+    parser.add_argument('-b', '--bags_dir', required=True, help='Path to directory containing rosbag folders')
+    parser.add_argument('-o', '--outdir', required=True, help='Output root directory')
     parser.add_argument('--image_topic', default='/realsense2_camera/color/image_raw', help='Image topic name')
     parser.add_argument('--cmd_topic', default='/jetracer/cmd_drive', help='Command topic name')
     parser.add_argument('--odom_topic', default='/visual_slam/tracking/odometry', help='Odometry topic name')

@@ -93,10 +93,20 @@ def main(cfg: DictConfig) -> None:
     val_size = len(full_dataset) - train_size
     train_indices, val_indices = random_split(range(len(full_dataset)), [train_size, val_size])
     
+    print(f"Using transform mode: {cfg.dataset.transform_mode}")
+    
     train_dataset = Subset(full_dataset, train_indices)
-    train_dataset.dataset.transform = TrainTransform(height=cfg.dataset.image_height, width=cfg.dataset.image_width)
+    train_dataset.dataset.transform = TrainTransform(
+        height=cfg.dataset.image_height, 
+        width=cfg.dataset.image_width,
+        mode=cfg.dataset.transform_mode
+    )
     val_dataset = Subset(full_dataset, val_indices)
-    val_dataset.dataset.transform = TestTransform(height=cfg.dataset.image_height, width=cfg.dataset.image_width)
+    val_dataset.dataset.transform = TestTransform(
+        height=cfg.dataset.image_height, 
+        width=cfg.dataset.image_width,
+        mode=cfg.dataset.transform_mode
+    )
 
     train_loader = DataLoader(train_dataset, batch_size=cfg.training.batch_size, shuffle=True, num_workers=cfg.training.num_workers)
     val_loader = DataLoader(val_dataset, batch_size=cfg.training.batch_size, shuffle=False, num_workers=cfg.training.num_workers)
