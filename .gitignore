@@ -140,3 +140,6 @@ ros2_ws/install/
 
 # Isaac ROS Visual SLAM map database files
 ros2_ws/src/launch/localization_launch/map/*.mdb
+
+# debug data
+/debug
