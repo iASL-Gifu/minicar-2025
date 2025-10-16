@@ -6,8 +6,8 @@ from scipy.spatial.transform import Rotation as R
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from pathlib import Path
-import os
 from tqdm import tqdm
+import time  
 
 # 学習スクリプトで使用したモジュールを再利用
 from src.data.dataset import TrajectoryDataset   
@@ -76,8 +76,16 @@ def main(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
     print("---------------------")
 
-    device = torch.device(cfg.device if torch.cuda.is_available() and cfg.device == 'cuda' else 'cpu')
+    # --- デバイス設定 ---
+    is_mps = torch.backends.mps.is_available() and cfg.device == 'cuda' # 'cuda'設定時にMPSも考慮
+    if is_mps:
+        device = torch.device('mps')
+    elif torch.cuda.is_available() and cfg.device == 'cuda':
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
     print(f"Using device: {device}")
+
 
     # --- パス設定 (Hydraの to_absolute_path を使用) ---
     dataset_dir = Path(hydra.utils.to_absolute_path(cfg.dataset_dir))
@@ -117,18 +125,51 @@ def main(cfg: DictConfig) -> None:
 
     print(f"[INFO] Running inference and saving {len(dataset)} visualizations to {save_dir}")
 
+    inference_times = [] # <-- 計測時間保存用リスト
+
     for idx, batch in enumerate(tqdm(loader, desc="Inference")):
         image = batch['image'].to(device)
         past_odoms = batch['past_odoms'].to(device)
-        with torch.no_grad():
-            pred_future = model(image, past_odoms).cpu().numpy()[0]
 
+        # --- 推論時間計測 開始 ---
+        starter, ender = None, None
+        start_time_cpu = None
+
+        if device.type == 'cuda':
+            starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+            starter.record()
+        elif device.type == 'mps':
+            starter, ender = torch.mps.Event(enable_timing=True), torch.mps.Event(enable_timing=True)
+            starter.record()
+        else: # CPU
+            start_time_cpu = time.perf_counter()
+
+        with torch.no_grad():
+            pred_future_tensor = model(image, past_odoms)
+
+        # --- 推論時間計測 終了 ---
+        curr_time = 0.0
+        if device.type == 'cuda':
+            ender.record()
+            torch.cuda.synchronize() # GPU処理の完了を待つ
+            curr_time = starter.elapsed_time(ender) / 1000.0 # ミリ秒を秒に変換
+        elif device.type == 'mps':
+            ender.record()
+            torch.mps.synchronize()
+            curr_time = starter.elapsed_time(ender) / 1000.0 # ミリ秒を秒に変換
+        else: # CPU
+            curr_time = time.perf_counter() - start_time_cpu
+        
+        # 最初の1回はウォームアップとして除外する場合もあるが、ここでは含める
+        inference_times.append(curr_time)
+        # --- 計測ここまで ---
+
+        pred_future = pred_future_tensor.cpu().numpy()[0]
         past_odom_np = past_odoms.cpu().numpy()[0]
         img_np = image.cpu().numpy()[0].transpose(1,2,0)  # C,H,W -> H,W,C
         
         # (cfg.dataset.transform_mode に応じて正規化を解除)
-        # 元のコードが * 0.5 + 0.5 だったので、[-1, 1] -> [0, 1] と仮定
-        if cfg.dataset.transform_mode: # 何らかのモードが指定されている場合
+        if cfg.dataset.transform_mode:
              img_np = img_np * 0.5 + 0.5  # [-1,1] -> [0,1]
 
         img_np = (img_np * 255).clip(0,255).astype(np.uint8)
@@ -140,16 +181,32 @@ def main(cfg: DictConfig) -> None:
         bev_h, bev_w, _ = bev_canvas.shape
         
         combined = bev_canvas
-        if img_h > 0: # 画像がある場合
+        if img_h > 0:
             scale_factor = bev_h / img_h
             resized_img = cv2.resize(img_np, (int(img_w*scale_factor), bev_h))
             combined = np.hstack([resized_img, bev_canvas])
             cv2.putText(combined, f"Sample {idx}", (10,30), cv2.FONT_HERSHEY_SIMPLEX,0.8,(255,255,255),2)
-        else: # 画像がない場合（デバッグ用）
+        else:
              cv2.putText(combined, f"Sample {idx}", (10,30), cv2.FONT_HERSHEY_SIMPLEX,0.8,(255,255,255),2)
 
         save_path = save_dir / f"pred_{idx:06d}.png"
         cv2.imwrite(str(save_path), combined)
+
+    # --- ループ終了後、計測結果を表示 ---
+    if inference_times:
+        # 最初の数回をウォームアップとして除外することも可能
+        # 例: inference_times = inference_times[5:] 
+        
+        avg_time = np.mean(inference_times)
+        avg_fps = 1.0 / avg_time
+        total_time = np.sum(inference_times)
+        
+        print("\n--- Inference Speed ---")
+        print(f"Total samples:   {len(inference_times)}")
+        print(f"Total time:      {total_time:.2f} s")
+        print(f"Avg time/sample: {avg_time * 1000:.2f} ms") # ミリ秒で表示
+        print(f"Avg FPS:         {avg_fps:.2f} Hz")
+        print("-----------------------")
 
     print(f"[INFO] All visualizations saved to {save_dir}")
 

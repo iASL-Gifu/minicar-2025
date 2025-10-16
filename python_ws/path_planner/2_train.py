@@ -13,10 +13,36 @@ from src.data.transform import TrainTransform, TestTransform
 from src.model.trajformer import TrajFormerNano
 
 
+def get_kinematic_loss(predicted_trajectory, accel_weight=1.0, jerk_weight=1.0):
+    """
+    予測された軌道 (B, N, 3) から加速度と躍度の損失を計算する。
+    軌道は (x, y, vx) と仮定し、(x, y) の座標のみを使用する。
+    """
+    xy_coords = predicted_trajectory[..., :2] # (B, N, 2)
+
+    # 1. 速度 (Velocity) を計算 (差分)
+    # v(t) = p(t) - p(t-1)
+    velocity = xy_coords[:, 1:, :] - xy_coords[:, :-1, :] # (B, N-1, 2)
+    
+    # 2. 加速度 (Acceleration) を計算
+    # a(t) = v(t) - v(t-1)
+    acceleration = velocity[:, 1:, :] - velocity[:, :-1, :] # (B, N-2, 2)
+    
+    # 3. 躍度 (Jerk) を計算
+    # j(t) = a(t) - a(t-1)
+    jerk = acceleration[:, 1:, :] - acceleration[:, :-1, :] # (B, N-3, 2)
+
+    # L2ノルム (大きさ) の平均を損失とする
+    loss_accel = torch.mean(torch.norm(acceleration, p=2, dim=2))
+    loss_jerk = torch.mean(torch.norm(jerk, p=2, dim=2))
+    
+    return (accel_weight * loss_accel) + (jerk_weight * loss_jerk)
+
 # --- 学習ループ ---
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
+    lambda_kinematic=0.1
 
     for batch in tqdm(dataloader, desc="Training"):
         images = batch['image'].to(device)               # (B, C, H, W)
@@ -26,6 +52,15 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
         optimizer.zero_grad()
         outputs = model(images, past_odoms)
         loss = criterion(outputs, future_path)
+
+        loss_pos = criterion(outputs, future_path)
+        
+        # 2. 滑らかさに対する損失 (新規)
+        loss_smooth = get_kinematic_loss(outputs, accel_weight=1.0, jerk_weight=1.0)
+        
+        # 3. 複合損失
+        loss = loss_pos + (lambda_kinematic * loss_smooth)
+
         loss.backward()
         optimizer.step()
         total_loss += loss.item()

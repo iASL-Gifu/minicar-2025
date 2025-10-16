@@ -14,7 +14,7 @@ class TrajFormerNano(nn.Module):
         self,
         history_len: int = 10,
         odom_features: int = 8,
-        future_len: int = 30,
+        future_len: int = 10,
         image_embedding_dim: int = 128,
         motion_embedding_dim: int = 64,
         transformer_d_model: int = 192,

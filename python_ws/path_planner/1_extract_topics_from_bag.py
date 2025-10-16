@@ -189,7 +189,7 @@ def main():
                         help='Number of past odometry points to retrieve (before current timestamp).')
     parser.add_argument('--past-interval', type=float, default=0.1,
                         help='Time interval [s] between consecutive past odometry points.')
-    parser.add_argument('--future-steps', type=int, default=30,
+    parser.add_argument('--future-steps', type=int, default=10,
                         help='Number of future trajectory points to generate (after current timestamp).')
     parser.add_argument('--future-interval', type=float, default=0.333,
                         help='Time interval [s] between consecutive future trajectory points.')
