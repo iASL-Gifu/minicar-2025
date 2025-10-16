@@ -1,8 +1,5 @@
 #!/bin/bash
 # Localization起動スクリプト
-
-cd ~/minicar-2025/ros2_ws
-
 echo "========================================="
 echo "Localization Launcher"
 echo "========================================="
