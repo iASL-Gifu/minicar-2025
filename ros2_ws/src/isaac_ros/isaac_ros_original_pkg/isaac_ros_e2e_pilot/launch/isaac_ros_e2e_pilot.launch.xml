@@ -1,10 +1,10 @@
 <launch>
-    <arg name="input_image_topic" default="/image_raw" />
-    <arg name="input_camera_info_topic" default="/camera_info" />
+    <arg name="input_image_topic" default="/realsense2_camera/color/image_raw" />
+    <arg name="input_camera_info_topic" default="/realsense2_camera/color/camera_info" />
     <arg name="output_cmd_topic" default="/ackermann_cmd" />
-    <arg name="model_repository_path" default="ABSOLUTE_PATH_TO_YOUR_MODELS" />
+    <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models" />
     <arg name="model_name" default="pilotnet" />
-    <arg name="container_name" default="pilot_net_container" />
+    <arg name="container_name" default="localization_container" />
 
 
     <node pkg="rclcpp_components" exec="component_container" name="$(var container_name)"

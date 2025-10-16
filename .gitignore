@@ -1,3 +1,6 @@
+record/
+isaac_ros_assets/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

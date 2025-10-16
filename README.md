@@ -68,7 +68,6 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-a
 
 sudo apt update
 sudo apt install -y ros-humble-desktop
-
 ```
 
 ## setup for realsense
@@ -153,11 +152,12 @@ versions/$LATEST_VERSION_ID/files/$NGC_FILENAME" && \
 fi
 
 ```
+
 ## docker run
 ```bash
 cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common/scripts && \
 cat > .isaac_ros_common-config << EOF
-CONFIG_IMAGE_KEY=ros2_humble.realsense.cyclone_dds.isaac_ros_preset
+CONFIG_IMAGE_KEY=ros2_humble.realsense.additinal_setting
 CONFIG_DOCKER_SEARCH_DIRS=("../docker/")
 EOF
 
@@ -176,13 +176,11 @@ cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common && \
 
 source install/setup.bash
 ros2 launch isaac_ros_examples isaac_ros_examples.launch.py launch_fragments:=realsense_stereo_rect,visual_slam \
-interface_specs_file:=${ISAAC_ROS_WS}/isaac_ros_assets/isaac_ros_visual_slam/quickstart_interface_specs.json \
+interface_specs_file:=/workspaces/isaac_ros_assets/isaac_ros_visual_slam/quickstart_interface_specs.json \
 base_frame:=camera_link camera_optical_frames:="['camera_infra1_optical_frame', 'camera_infra2_optical_frame']"
 ```
 
 ### 2. terminal 2 可視化
 ```bash
-cd ${ISAAC_ROS_WS}/src/isaac_ros/isaac_ros_common && \
-./scripts/run_dev.sh 
-rviz2 -d $(ros2 pkg prefix isaac_ros_visual_slam --share)/rviz/default.cfg.rviz
+bash /scripts/rviz.sh 
 ```
