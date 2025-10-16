@@ -2,6 +2,8 @@
     <!-- GPU上で確保するメモリサイズ -->
     <arg name="camera_width" default="640" />
     <arg name="camera_height" default="480" />
+    <arg name="resized_camera_width" default="160" />
+    <arg name="resized_camera_height" default="120" />
     <arg name="realsense_config_file" default="$(find-pkg-share localization_launch)/config/realsense.yaml" />
     <arg name="vslam_config_file" default="$(find-pkg-share localization_launch)/config/vslam.yaml" />
 
@@ -15,6 +17,24 @@
             <remap from="realsense2_camera/infra2/image_rect_raw" to="/infra2/image_rect_raw_mono" />
             <remap from="realsense2_camera/infra2/camera_info" to="/right/camera_info_rect" />
             <remap from="/realsense2_camera/imu" to="/camera/imu" />
+        </composable_node>
+
+        <!-- Color image format converter (BGR to RGB for display - GPU transfer) -->
+        <composable_node pkg="isaac_ros_image_proc" plugin="nvidia::isaac_ros::image_proc::ImageFormatConverterNode" name="image_format_converter_rgb" namespace="">
+            <param name="encoding_desired" value="rgb8" /> 
+            <param name="image_width" value="$(var camera_width)" />
+            <param name="image_height" value="$(var camera_height)" />
+            <remap from="image_raw" to="/camera/color/image_raw" />
+            <remap from="image" to="/camera/color/image_formatted" />
+        </composable_node>
+
+        <!-- Color image resizer (for DNN Encoder) -->
+        <composable_node pkg="isaac_ros_image_proc" plugin="nvidia::isaac_ros::image_proc::ResizeNode" name="resize_node_rgb" namespace="">
+            <param name="output_width" value="$(var resized_camera_width)" />
+            <param name="output_height" value="$(var resized_camera_height)" />
+            <remap from="image" to="/camera/color/image_formatted" />
+            <remap from="resize" to="/camera/color/image_resized" />
+            <remap from="resize/camera_info" to="/camera/color/camera_info_resized" />
         </composable_node>
 
         <!-- Left image format converter (MONO to MONO for VSLAM - GPU transfer) -->

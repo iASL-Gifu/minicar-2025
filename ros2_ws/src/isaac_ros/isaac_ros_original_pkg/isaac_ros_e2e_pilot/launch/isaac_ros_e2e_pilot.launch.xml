@@ -1,11 +1,12 @@
 <launch>
-    <arg name="input_image_topic" default="/realsense2_camera/color/image_raw" />
-    <arg name="input_camera_info_topic" default="/realsense2_camera/color/camera_info" />
+    <arg name="input_image_topic" default="/camera/color/image_resized" />
+    <arg name="input_camera_info_topic" default="/camera/color/camera_info_resized" />
     <arg name="output_cmd_topic" default="/ackermann_cmd" />
     <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models" />
     <arg name="model_name" default="pilotnet" />
     <arg name="container_name" default="localization_container" />
-
+    <arg name="network_image_width" default="160" />
+    <arg name="network_image_height" default="120" />
 
     <node pkg="rclcpp_components" exec="component_container" name="$(var container_name)"
           output="screen" namespace=""/>
@@ -14,8 +15,8 @@
         <composable_node pkg="isaac_ros_dnn_image_encoder"
                          plugin="nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode"
                          name="dnn_image_encoder_node">
-            <param name="network_image_width" value="160"/>
-            <param name="network_image_height" value="120"/>
+            <param name="network_image_width" value="$(var network_image_width)"/>
+            <param name="network_image_height" value="$(var network_image_height)"/>
             <param name="image_mean" value="[0.5, 0.5, 0.5]"/>
             <param name="image_stddev" value="[0.5, 0.5, 0.5]"/>
             <param name="enable_padding" value="False"/>
