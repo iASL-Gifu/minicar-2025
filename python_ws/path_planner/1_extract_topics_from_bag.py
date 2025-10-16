@@ -1,6 +1,3 @@
-#
-# create_trajectory_dataset.py
-#
 import argparse
 from pathlib import Path
 import numpy as np
@@ -62,7 +59,7 @@ def extract_and_save_per_bag(
                     else: continue
                     
                     image_np = np.frombuffer(msg.data, dtype=np.uint8).reshape(shape)
-                    if encoding == 'rgb8': image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB_BGR)
+                    if encoding == 'rgb8': image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
                     
                     image_data.append(image_np)
                     image_times.append(timestamp)
@@ -175,7 +172,7 @@ def main():
     parser.add_argument('--outdir', required=True, type=Path,
                         help='Root directory to save the processed dataset.')
     # --- トピック名 ---
-    parser.add_argument('--image-topic', default='/camera/color/image_raw',
+    parser.add_argument('--image-topic', default='/realsense2_camera/color/image_raw',
                         help='Image topic name.')
     parser.add_argument('--odom-topic', default='/visual_slam/tracking/odometry',
                         help='Odometry topic name.')
