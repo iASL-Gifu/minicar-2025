@@ -1,5 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <ackermann_msgs/msg/ackermann_drive.hpp>
+#include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include <deque>
 #include <string>
 #include <vector>
@@ -58,47 +59,54 @@ public:
       std::bind(&AckermannFilterNode::parameters_callback, this, std::placeholders::_1));
 
     // PublisherとSubscriberの初期化
-    publisher_ = this->create_publisher<ackermann_msgs::msg::AckermannDrive>(OUTPUT_TOPIC, 10);
-    subscription_ = this->create_subscription<ackermann_msgs::msg::AckermannDrive>(
+    publisher_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(OUTPUT_TOPIC, 10);
+    subscription_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
       INPUT_TOPIC, 10, std::bind(&AckermannFilterNode::topic_callback, this, std::placeholders::_1));
   }
 
 private:
-  void topic_callback(const ackermann_msgs::msg::AckermannDrive::SharedPtr msg)
+  void topic_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
   {
-    speed_buffer_.push_back(msg->speed);
-    steering_angle_buffer_.push_back(msg->steering_angle);
+    // drive メンバーから値を取得
+    speed_buffer_.push_back(msg->drive.speed);
+    steering_angle_buffer_.push_back(msg->drive.steering_angle);
 
+    // バッファサイズの管理 
     while (speed_buffer_.size() > static_cast<size_t>(window_size_)) {
       speed_buffer_.pop_front();
       steering_angle_buffer_.pop_front();
     }
 
-    auto filtered_msg = ackermann_msgs::msg::AckermannDrive();
+    // フィルター処理用のローカル変数 
+    auto filtered_drive_data = ackermann_msgs::msg::AckermannDrive();
     
+    // 既存のフィルター処理を filtered_drive_data に対して実行
     if (filter_type_ == "average") {
-      apply_average_filter(filtered_msg);
+      apply_average_filter(filtered_drive_data);
     } else if (filter_type_ == "median") {
-      apply_median_filter(filtered_msg);
+      apply_median_filter(filtered_drive_data);
     } else {
       if (!speed_buffer_.empty()) {
-        filtered_msg.speed = speed_buffer_.back();
-        filtered_msg.steering_angle = steering_angle_buffer_.back();
+        filtered_drive_data.speed = speed_buffer_.back();
+        filtered_drive_data.steering_angle = steering_angle_buffer_.back();
       } else {
-        filtered_msg.speed = msg->speed;
-        filtered_msg.steering_angle = msg->steering_angle;
+        filtered_drive_data.speed = msg->drive.speed;
+        filtered_drive_data.steering_angle = msg->drive.steering_angle;
       }
     }
     
     if (use_scale_filter_) {
       if (scale_filter_type_ == "advance") {
-          apply_advanced_scale_filter(filtered_msg);
+          apply_advanced_scale_filter(filtered_drive_data);
       } else {
-          apply_normal_scale_filter(filtered_msg);
+          apply_normal_scale_filter(filtered_drive_data);
       }
     }
-
-    publisher_->publish(filtered_msg);
+    
+    auto filtered_stamped_msg = ackermann_msgs::msg::AckermannDriveStamped();
+    filtered_stamped_msg.header = msg->header;
+    filtered_stamped_msg.drive = filtered_drive_data;
+    publisher_->publish(filtered_stamped_msg);
   }
   
   rcl_interfaces::msg::SetParametersResult parameters_callback(
