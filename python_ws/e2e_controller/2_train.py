@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, random_split, Subset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -11,41 +11,34 @@ from src.data.dataset import RecordingSequenceDataset
 from src.data.transform import TrainTransform, TestTransform
 from src.model.pilotnet import PilotNet
 
-# --- 学習・検証ループ関数 ---
+
+# --- 学習ループ ---
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
-    
     for batch in tqdm(dataloader, desc="Training"):
-        # 辞書から各データをキーで取り出す
-        images = batch['image'].to(device) # 形状: [B, S, C, H, W]
-        steers = batch['steer']             # 形状: [B, S]
-        speeds = batch['speed']             # 形状: [B, S]
-        
+        images = batch['image'].to(device)
+        steers = batch['steer']
+        speeds = batch['speed']
+
         b, s, c, h, w = images.shape
-        
-        # 5次元テンソルをモデルが受け取れる4次元に変換
-        # [B, S, C, H, W] -> [B*S, C, H, W]
         inputs = images.view(b * s, c, h, w)
-        
-        # ラベルも同様にバッチ次元にまとめる
-        # [B, S] -> [B*S] にしてから結合し、[B*S, 2] の形状にする
         labels = torch.stack([
-            steers.view(b * s), 
+            steers.view(b * s),
             speeds.view(b * s)
         ], dim=-1).to(device)
 
         optimizer.zero_grad()
-        # 4次元に変換した`inputs`をモデルに渡す
         outputs = model(inputs)
-        # 2次元に変換した`labels`で損失を計算
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
-        
+
     return total_loss / len(dataloader)
 
+
+# --- 検証ループ ---
 def validate_one_epoch(model, dataloader, criterion, device):
     model.eval()
     total_loss = 0.0
@@ -58,17 +51,18 @@ def validate_one_epoch(model, dataloader, criterion, device):
             b, s, c, h, w = images.shape
             inputs = images.view(b * s, c, h, w)
             labels = torch.stack([
-                steers.view(b * s), 
+                steers.view(b * s),
                 speeds.view(b * s)
             ], dim=-1).to(device)
 
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             total_loss += loss.item()
-            
+
     return total_loss / len(dataloader)
 
-# --- メイン実行関数  ---
+
+# --- メイン ---
 @hydra.main(config_path="config", config_name="train", version_base="1.2")
 def main(cfg: DictConfig) -> None:
     print("--- Configuration ---")
@@ -82,59 +76,88 @@ def main(cfg: DictConfig) -> None:
     ckpt_dir = hydra.utils.to_absolute_path(cfg.ckpt_dir)
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(ckpt_dir, exist_ok=True)
-
     writer = SummaryWriter(log_dir=log_dir)
 
-    data_path = hydra.utils.to_absolute_path(cfg.data_path)
-    
-    full_dataset = RecordingSequenceDataset(root_dir=data_path, sequence_length=cfg.dataset.sequence_length)
-    
-    train_size = int(cfg.dataset.train_val_split_ratio * len(full_dataset))
-    val_size = len(full_dataset) - train_size
-    train_indices, val_indices = random_split(range(len(full_dataset)), [train_size, val_size])
-    
-    print(f"Using transform mode: {cfg.dataset.transform_mode}")
-    
-    train_dataset = Subset(full_dataset, train_indices)
-    train_dataset.dataset.transform = TrainTransform(
-        height=cfg.dataset.image_height, 
-        width=cfg.dataset.image_width,
-        mode=cfg.dataset.transform_mode
+    base_path = hydra.utils.to_absolute_path(cfg.data_path)
+    train_path = os.path.join(base_path, "train")
+    test_path = os.path.join(base_path, "test")
+
+    # --- Dataset: train ---
+    train_dataset = RecordingSequenceDataset(
+        root_dir=train_path,
+        sequence_length=cfg.dataset.sequence_length
     )
-    val_dataset = Subset(full_dataset, val_indices)
-    val_dataset.dataset.transform = TestTransform(
-        height=cfg.dataset.image_height, 
+    train_dataset.transform = TrainTransform(
+        height=cfg.dataset.image_height,
         width=cfg.dataset.image_width,
         mode=cfg.dataset.transform_mode
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=cfg.training.batch_size, shuffle=True, num_workers=cfg.training.num_workers)
-    val_loader = DataLoader(val_dataset, batch_size=cfg.training.batch_size, shuffle=False, num_workers=cfg.training.num_workers)
-    
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.training.batch_size,
+        shuffle=True,
+        num_workers=cfg.training.num_workers
+    )
+
+    # --- Dataset: test（存在する場合のみ） ---
+    val_loader = None
+    if os.path.exists(test_path):
+        val_dataset = RecordingSequenceDataset(
+            root_dir=test_path,
+            sequence_length=cfg.dataset.sequence_length
+        )
+        val_dataset.transform = TestTransform(
+            height=cfg.dataset.image_height,
+            width=cfg.dataset.image_width,
+            mode=cfg.dataset.transform_mode
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=cfg.training.batch_size,
+            shuffle=False,
+            num_workers=cfg.training.num_workers
+        )
+        print(f"✅ Validation dataset found: {test_path}")
+    else:
+        print(f"⚠️ Validation dataset not found: {test_path}")
+        print("→ Skipping validation phase (train loss will be used).")
+
+    # --- モデル定義 ---
     model = PilotNet(num_outputs=cfg.model.num_outputs).to(device)
     criterion = nn.SmoothL1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.training.learning_rate)
-    
-    best_val_loss = float('inf')
-    
+
+    best_metric = float('inf')  # train_loss か val_loss を入れる
+
+    # --- 学習ループ ---
     for epoch in range(cfg.training.epochs):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
-        val_loss = validate_one_epoch(model, val_loader, criterion, device)
-        
-        print(f"Epoch {epoch+1}/{cfg.training.epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-        
         writer.add_scalar('Loss/train', train_loss, epoch)
-        writer.add_scalar('Loss/validation', val_loss, epoch)
+        print(f"Epoch {epoch+1}/{cfg.training.epochs} | Train Loss: {train_loss:.4f}")
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        # --- 検証あり ---
+        if val_loader is not None:
+            val_loss = validate_one_epoch(model, val_loader, criterion, device)
+            writer.add_scalar('Loss/validation', val_loss, epoch)
+            print(f"→ Validation Loss: {val_loss:.4f}")
+
+            current_metric = val_loss
+        else:
+            current_metric = train_loss  # 検証が無いときはtrain lossで評価
+
+        # --- Best model 判定 ---
+        if current_metric < best_metric:
+            best_metric = current_metric
             torch.save(model.state_dict(), os.path.join(ckpt_dir, 'best_model.pth'))
-            print(f"✨ Validation loss improved to {val_loss:.4f}. Saving best model to {ckpt_dir}")
+            print(f"✨ Improved best model (metric={best_metric:.4f}) saved!")
 
-    torch.save(model.state_dict(), os.path.join(ckpt_dir, 'last_model.pth'))
-    print(f"Finished training. Saving last model to {ckpt_dir}")
-    
+        # --- Last model ---
+        torch.save(model.state_dict(), os.path.join(ckpt_dir, 'last_model.pth'))
+
+    print("✅ Finished training.")
     writer.close()
+
 
 if __name__ == '__main__':
     main()

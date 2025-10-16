@@ -1,5 +1,5 @@
 # --- データ関連の設定 ---
-data_path: "./datasets/"
+data_path: "./datasets/train/<sequence_name>"
 
 # --- データセットと変換の設定 ---
 dataset:
@@ -14,7 +14,7 @@ model:
   num_outputs: 2
   
 # --- 実行環境の設定 ---
-num_workers: 4
+num_workers: 0
 
 # --- 分析対象のモデル ---
 model_path: './ckpts/best_model.pth'
