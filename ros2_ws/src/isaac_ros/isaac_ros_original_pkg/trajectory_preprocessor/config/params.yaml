@@ -16,24 +16,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # config/params.yaml
-# MergeSyncNode (統合ノード) のパラメータ設定
 /**:
   ros__parameters:
-    # --- 1. モデルの形状設定 ---
-    # 過去オドメトリの履歴数 (TrajFormerNanoのhistory_len)
+    # (1) ★最重要★
+    # Launchファイルの 'encoder_output_tensor_name' の値と一致させる
+    image_tensor_name_in_list: "input_1" 
+    # (2) ONNXモデルが期待する画像入力名 (Tritonへ渡す名前)
+    image_tensor_name_in_model: "input_image" 
+    # (3) ONNXモデルが期待するオドメトリ入力名 (Tritonへ渡す名前)
+    odom_tensor_name_in_model: "input_odoms" 
+    
     past_len: 5
-    # オドメトリの次元 (x,y,z, qx,qy,qz,qw, vx)
     odom_dim: 8
-
-    # --- 2. テンソル名の設定 ---
-    # (入力1) dnn_image_encoderが出力するTensorList内のテンソル名
-    image_tensor_name_in_list: "input_tensor"
-    # (出力1) Tritonのconfig.pbtxtが期待する画像テンソル名
-    image_tensor_name_in_model: "input_image"
-    # (出力2) Tritonのconfig.pbtxtが期待するOdomテンソル名
-    odom_tensor_name_in_model: "input_odoms"
-
-    # --- 3. QoS設定 ---
-    # C++コード側で isaac_ros::common::AddQosParameter を呼んでいるため
-    input_qos: "DEFAULT"
-    output_qos: "DEFAULT"
