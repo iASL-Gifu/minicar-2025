@@ -17,14 +17,14 @@ INPUT_ONNX_PATH=""
 MODEL_NAME=""      
 HEIGHT="120"
 WIDTH="160"
-CONFIG_FILE="trajformer_config.pbtxt" 
+CONFIG_FILE="trajcontrolnet_config.pbtxt" 
 PRECISION="fp16"
 MAX_BATCH_SIZE="1"
 
 # --- 2つの入力に対応 ---
 IMAGE_TENSOR_NAME="input_image" 
 ODOM_TENSOR_NAME="input_odoms"
-PAST_LEN="5"   # 過去オドメトリのシーケンス長
+PAST_LEN="10"   # 過去オドメトリのシーケンス長
 ODOM_DIM="8"   # 過去オドメトリの特徴量次元
 
 # --- Functions ---

@@ -1,224 +1,240 @@
-import argparse
 from pathlib import Path
 import numpy as np
 from rosbags.highlevel import AnyReader
 import cv2
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation as R # scipy をインポート
 
-
-def transform_path_to_local(current_pose_7d: np.ndarray, future_path_7d: np.ndarray) -> np.ndarray:
+def transform_global_to_local(ref_pose_7d: np.ndarray, target_poses_7d: np.ndarray) -> np.ndarray:
     """
-    未来のグローバルパスを現在のロボットのローカル座標系（base_link）に変換します。
+    ターゲットとなる複数のグローバル姿勢を、基準となる単一のグローバル姿勢のローカル座標系に変換する。
+    (x, y, z) -> (x, y) の2D座標のみ返す。
 
     Args:
-        current_pose_7d (np.ndarray): 現在の姿勢 [x, y, z, qx, qy, qz, qw]
-        future_path_7d (np.ndarray): 未来のパス (N, 7) [x, y, z, qx, qy, qz, qw]
+        ref_pose_7d (np.ndarray): 基準となる姿勢 [x, y, z, qx, qy, qz, qw] (7,)
+        target_poses_7d (np.ndarray): 変換したい姿勢群 (N, 7)
 
     Returns:
-        np.ndarray: ローカル座標系に変換されたパス (N, 2)。x, y座標のみを返します。
+        np.ndarray: ローカル座標系に変換されたXY座標群 (N, 2)。
     """
-    current_position = current_pose_7d[:3]
-    current_quat = current_pose_7d[3:]
+    ref_position = ref_pose_7d[:3]
+    ref_quat = ref_pose_7d[3:]
+    target_positions = target_poses_7d[:, :3]
 
-    future_positions = future_path_7d[:, :3]
+    # 基準位置を原点に
+    translated = target_positions - ref_position
+    # 基準の向きがローカルの+X軸になるように回転
+    inv_rotation = R.from_quat(ref_quat).inv()
+    local_coords = inv_rotation.apply(translated)
+    
+    # ローカル座標の (x, y) のみ返す
+    return local_coords[:, :2]
 
-    translated_positions = future_positions - current_position
-    inv_rotation = R.from_quat(current_quat).inv()
-    local_path_3d = inv_rotation.apply(translated_positions)
-
-    return local_path_3d[:, :2].astype(np.float32)
-
-
-def extract_and_save_per_bag(
-    bag_path: Path,
-    output_dir: Path,
-    image_topic: str,
-    odom_topic: str,
-    future_steps: int,
-    future_interval: float,
-    past_steps: int,
-    past_interval: float,
+def extract_temporal_samples(
+    bag_path,
+    output_dir,
+    image_topic,
+    cmd_topic,
+    odom_topic,
+    history_len=10,
+    history_step=2,
+    future_len=30,  # デフォルトを30に変更
+    future_step=3
 ):
-    """
-    単一のrosbagから画像、過去のOdometry履歴、未来のローカルパスを抽出し、保存する。
-    """
-    print(f"\n[INFO] Processing bag: {bag_path.name}")
+    bag_path = Path(bag_path).expanduser().resolve()
     bag_name = bag_path.name
-    out_dir = output_dir / bag_name
+    out_dir = Path(output_dir) / bag_name
     out_dir.mkdir(parents=True, exist_ok=True)
 
     image_data, image_times = [], []
-    # odometryはpose(7d) + vx(1d) = 8次元で保存
-    odom_data, odom_times = [], []
+    cmd_data, cmd_times = [], []
+    odom_data, odom_times = [], [] # (x, y, z, qx, qy, qz, qw, vx) の8次元
 
-    try:
-        with AnyReader([bag_path]) as reader:
-            connections = [c for c in reader.connections if c.topic in [image_topic, odom_topic]]
+    with AnyReader([bag_path]) as reader:
+        connections = [
+            c for c in reader.connections if c.topic in [image_topic, cmd_topic, odom_topic]
+        ]
 
-            for conn, timestamp, raw in reader.messages(connections=connections):
-                msg = reader.deserialize(raw, conn.msgtype)
+        for conn, timestamp, raw in reader.messages(connections=connections):
+            msg = reader.deserialize(raw, conn.msgtype)
 
-                if conn.topic == image_topic and conn.msgtype == 'sensor_msgs/msg/Image':
-                    encoding = msg.encoding
-                    if encoding == 'mono8':
-                        shape = (msg.height, msg.width)
-                    elif encoding in ['bgr8', 'rgb8']:
-                        shape = (msg.height, msg.width, 3)
-                    else:
-                        continue
+            # --- 画像 ---
+            if conn.topic == image_topic and conn.msgtype == "sensor_msgs/msg/Image":
+                encoding = msg.encoding
+                if encoding in ["bgr8", "rgb8"]:
+                    shape = (msg.height, msg.width, 3)
+                else:
+                    continue
+                image_np = np.frombuffer(msg.data, dtype=np.uint8).reshape(shape)
+                if encoding == "rgb8":
+                    image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+                image_data.append(image_np)
+                image_times.append(timestamp)
 
-                    image_np = np.frombuffer(msg.data, dtype=np.uint8).reshape(shape)
-                    if encoding == 'rgb8':
-                        image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+            # --- 制御 ---
+            elif conn.topic == cmd_topic and conn.msgtype == "ackermann_msgs/msg/AckermannDriveStamped":
+                cmd_data.append(np.array([msg.drive.steering_angle, msg.drive.speed], dtype=np.float32))
+                cmd_times.append(timestamp)
 
-                    image_data.append(image_np)
-                    image_times.append(timestamp)
+            # --- オドメトリ ---
+            elif conn.topic == odom_topic and conn.msgtype == "nav_msgs/msg/Odometry":
+                pose = msg.pose.pose
+                pos = np.array([pose.position.x, pose.position.y, pose.position.z])
+                ori = np.array([
+                    pose.orientation.x,
+                    pose.orientation.y,
+                    pose.orientation.z,
+                    pose.orientation.w
+                ])
+                # vx (twist.twist.linear.x) を取得
+                vx = msg.twist.twist.linear.x
+                
+                # pos(3), ori(4), vx(1) を結合して 8次元ベクトルにする
+                odom_vec = np.concatenate([pos, ori, np.array([vx])]).astype(np.float32)
+                odom_data.append(odom_vec)
+                odom_times.append(timestamp)
 
-                elif conn.topic == odom_topic and conn.msgtype == 'nav_msgs/msg/Odometry':
-                    pose = msg.pose.pose
-                    position = np.array([pose.position.x, pose.position.y, pose.position.z])
-                    orientation = np.array([pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])
-                    velocity_x = msg.twist.twist.linear.x
-
-                    odom_vec = np.concatenate([position, orientation, [velocity_x]]).astype(np.float32)
-                    odom_data.append(odom_vec)
-                    odom_times.append(timestamp)
-    except Exception as e:
-        print(f"[ERROR] Failed to read bag {bag_path.name}: {e}")
-        return
-
-    if not image_data or not odom_data:
-        print(f'[WARN] Skipping {bag_name}: insufficient image or odometry data.')
+    # --- 同期 ---
+    if not (image_data and cmd_data and odom_data):
+        print(f"[WARN] {bag_name}: insufficient data, skipped.")
         return
 
     image_times = np.array(image_times)
-    odom_data = np.array(odom_data)
-    odom_times = np.array(odom_times)
+    cmd_data, cmd_times = np.array(cmd_data), np.array(cmd_times)
+    odom_data, odom_times = np.array(odom_data), np.array(odom_times)
 
-    synced_images = []
-    synced_past_odoms = []
-    synced_local_paths_with_vel = []
-
+    synced = []
     for i, itime in enumerate(image_times):
-        # --- 1. 現在のオドメトリを取得 ---
-        current_odom_idx = np.argmin(np.abs(odom_times - itime))
-        current_pose = odom_data[current_odom_idx, :7]
+        idx_cmd = np.argmin(np.abs(cmd_times - itime))
+        idx_odom = np.argmin(np.abs(odom_times - itime))
+        synced.append((i, idx_cmd, idx_odom)) # (img_idx, cmd_idx, odom_idx)
 
-        # --- 2. 未来のパスを取得 ---
-        future_path_indices = []
-        is_future_path_valid = True
-        for k in range(1, future_steps + 1):
-            future_time = itime + (k * future_interval * 1e9)
-            search_indices = np.where(odom_times >= itime)[0]
-            if len(search_indices) == 0:
-                is_future_path_valid = False
-                break
-            relative_idx = np.argmin(np.abs(odom_times[search_indices] - future_time))
-            absolute_idx = search_indices[relative_idx]
-            future_path_indices.append(absolute_idx)
-
-        # --- 3. 過去のオドメトリ履歴を取得 ---
-        past_odom_indices = []
-        is_past_valid = True
-        for k in range(past_steps):
-            past_time = itime - (k * past_interval * 1e9)
-            search_indices = np.where(odom_times <= itime)[0]
-            if len(search_indices) == 0:
-                is_past_valid = False
-                break
-            relative_idx = np.argmin(np.abs(odom_times[search_indices] - past_time))
-            absolute_idx = search_indices[relative_idx]
-            past_odom_indices.append(absolute_idx)
-
-        # 不完全なデータはスキップ
-        if not is_future_path_valid or not is_past_valid or \
-           len(future_path_indices) != future_steps or \
-           len(past_odom_indices) != past_steps:
-            continue
-
-        # --- 4. データを整形 ---
-        global_future_poses = odom_data[future_path_indices, :7]
-        future_velocities = odom_data[future_path_indices, 7:]
-        local_path_xy = transform_path_to_local(current_pose, global_future_poses)
-        local_path_with_vel = np.concatenate([local_path_xy, future_velocities], axis=1)
-
-        # 過去オドメトリを時系列順（古い→新しい）に並べ替え
-        past_odom_indices.reverse()
-        past_odoms = odom_data[past_odom_indices]
-
-        synced_images.append(image_data[i])
-        synced_past_odoms.append(past_odoms)
-        synced_local_paths_with_vel.append(local_path_with_vel)
-
-    if not synced_images:
-        print(f'[WARN] Skipping {bag_name}: No valid synchronized data pairs found.')
+    # --- サンプル構築 ---
+    samples = []
+    # ループ範囲の確保
+    start_idx = history_len * history_step
+    end_idx = len(synced) - future_len * future_step
+    
+    if start_idx >= end_idx:
+        print(f"[WARN] {bag_name}: Not enough synced data to create samples.")
         return
 
-    # --- 5. 保存処理 ---
-    images_save_dir = out_dir / 'images'
-    images_save_dir.mkdir(exist_ok=True)
-    for i, image in enumerate(synced_images):
-        cv2.imwrite(str(images_save_dir / f"{i:06d}.png"), image)
+    for i in range(start_idx, end_idx):
+        
+        # --- 過去オドメトリ (H, 8) ---
+        past_odoms_raw = []
+        for h in range(history_len):
+            # i, i-step, i-2*step ...
+            _, _, idx_odom = synced[i - h * history_step]
+            past_odoms_raw.append(odom_data[idx_odom])
+        # 時系列順 (古い -> 現在の手前) に並べ替え
+        past_odoms = np.stack(past_odoms_raw[::-1]) 
 
-    np.save(out_dir / 'paths.npy', np.array(synced_local_paths_with_vel, dtype=np.float32))
-    np.save(out_dir / 'past_odoms.npy', np.array(synced_past_odoms, dtype=np.float32))
+        # --- 未来データ (コマンドとオドメトリ) ---
+        future_cmds_raw = []
+        future_odoms_global_raw = []
+        for f in range(1, future_len + 1):
+            # i+step, i+2*step ...
+            _, idx_cmd, idx_odom = synced[i + f * future_step]
+            future_cmds_raw.append(cmd_data[idx_cmd])
+            future_odoms_global_raw.append(odom_data[idx_odom])
+            
+        future_cmds = np.stack(future_cmds_raw) # (F, 2)
+        future_odoms_global = np.stack(future_odoms_global_raw) # (F, 8)
 
-    print(f'[SAVE] {bag_name}: Saved {len(synced_images)} samples to {out_dir}')
+        # --- 現在画像 と 現在オドメトリ ---
+        img_idx, _, current_odom_idx = synced[i]
+        img = image_data[img_idx]
+        current_odom_8d = odom_data[current_odom_idx] # (8,)
+
+        # 未来のローカル軌跡 (x, y, vx) を作成
+        current_pose_7d = current_odom_8d[:7] # 現在の姿勢 (7,)
+        future_poses_7d = future_odoms_global[:, :7] # 未来の姿勢 (F, 7)
+        future_vx = future_odoms_global[:, 7] # 未来の速度 (F,)
+
+        # 未来のグローバル姿勢 (F, 7) をローカルの (x, y) 座標 (F, 2) に変換
+        future_path_local_xy = transform_global_to_local(current_pose_7d, future_poses_7d)
+        
+        # (F, 2) と (F, 1) を結合して (F, 3) の軌跡データにする
+        future_trajectory = np.hstack((
+            future_path_local_xy, 
+            future_vx.reshape(-1, 1) # (F,) -> (F, 1) に変形
+        )).astype(np.float32)
+
+        # (画像, 過去odom(H,8), 未来cmd(F,2), 未来軌跡(F,3))
+        samples.append((img, past_odoms, future_cmds, future_trajectory))
+
+    # --- 保存 ---
+    img_dir = out_dir / "images"
+    img_dir.mkdir(exist_ok=True)
+    
+    if not samples:
+        print(f"[WARN] {bag_name}: No samples were created (check lengths and steps).")
+        return
+
+    for i, (img, past_odoms, future_cmds, future_trajectory) in enumerate(samples):
+        img_path = str(img_dir / f"{i:06d}.png")
+        past_odom_path = str(out_dir / f"past_odoms_{i:06d}.npy")
+        future_cmd_path = str(out_dir / f"future_cmds_{i:06d}.npy")
+        future_traj_path = str(out_dir / f"future_trajectory_{i:06d}.npy") 
+
+        cv2.imwrite(img_path, img)
+        np.save(past_odom_path, past_odoms)           # (H, 8)
+        np.save(future_cmd_path, future_cmds)         # (F, 2)
+        np.save(future_traj_path, future_trajectory)  # (F, 3) <- (x, y, vx)
+
+    print(f"[SAVE] {bag_name}: {len(samples)} samples saved "
+          f"(H{history_len}xS{history_step}, F{future_len}xS{future_step})")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Extract synchronized image, past odometry, and future local path data from ROS 2 bags.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    import argparse
 
-    # --- 入出力関連 ---
-    parser.add_argument('--bags-dir', required=True, type=Path,
-                        help='Path to the directory containing ROS 2 bag directories.')
-    parser.add_argument('--outdir', required=True, type=Path,
-                        help='Root directory to save the processed dataset.')
-
-    # --- トピック名 ---
-    parser.add_argument('--image-topic', default='/realsense2_camera/color/image_raw',
-                        help='Image topic name.')
-    parser.add_argument('--odom-topic', default='/visual_slam/tracking/odometry',
-                        help='Odometry topic name.')
-
-    # --- データセット生成パラメータ ---
-    parser.add_argument('--past-steps', type=int, default=5,
-                        help='Number of past odometry points to retrieve (before current timestamp).')
-    parser.add_argument('--past-interval', type=float, default=0.1,
-                        help='Time interval [s] between consecutive past odometry points.')
-    parser.add_argument('--future-steps', type=int, default=10,
-                        help='Number of future trajectory points to generate (after current timestamp).')
-    parser.add_argument('--future-interval', type=float, default=0.333,
-                        help='Time interval [s] between consecutive future trajectory points.')
-
+    parser = argparse.ArgumentParser(description="Extract temporal image-odom-cmd samples from ROS2 bag")
+    parser.add_argument("--bags_dir", required=True, help="Path to directory containing rosbag folders")
+    parser.add_argument("--outdir", required=True, help="Output directory path")
+    parser.add_argument("--image_topic", default="/realsense2_camera/color/image_raw", help="Image topic name")
+    parser.add_argument("--cmd_topic", default="/jetracer/cmd_drive", help="AckermannDriveStamped topic")
+    parser.add_argument("--odom_topic", default="/visual_slam/tracking/odometry", help="Odometry topic")
+    
+    # デフォルト値を変更
+    parser.add_argument("--history_len", type=int, default=10, help="Number of past odom steps")
+    parser.add_argument("--history_step", type=int, default=1, help="Step size for past odom")
+    parser.add_argument("--future_len", type=int, default=30, help="Number of future cmd/trajectory steps")
+    parser.add_argument("--future_step", type=int, default=1, help="Step size for future cmd/trajectory")
+    
     args = parser.parse_args()
 
-    bags_dir = args.bags_dir.expanduser().resolve()
-    bag_paths = sorted([p for p in bags_dir.iterdir() if p.is_dir() and (p / 'metadata.yaml').exists()])
+    bags_dir = Path(args.bags_dir).expanduser().resolve()
+    # Bagファイル自体 (db3) や "metadata.yaml" を直接指定するのではなく、
+    # それらを含むディレクトリを指定することを想定 (rosbag record -o my_bag_dir の形式)
+    bag_dirs = [p for p in bags_dir.iterdir() if p.is_dir() and (p / "metadata.yaml").exists()]
 
-    if not bag_paths:
-        print(f"[ERROR] No rosbag directories (containing metadata.yaml) found in {bags_dir}")
-        return
+    if not bag_dirs:
+        print(f"[ERROR] No valid rosbag directories found in {bags_dir}.")
+        print("Usage: --bags_dir should point to a directory *containing* bag folders (e.g., 'my_bag_01', 'my_bag_02').")
+        
+        # もし bags_dir 自体が bag フォルダだった場合も考慮
+        if (bags_dir / "metadata.yaml").exists():
+            print(f"[INFO] Treating {bags_dir} as a single bag directory.")
+            bag_dirs = [bags_dir]
+        else:
+            return
 
-    print(f"[INFO] Found {len(bag_paths)} rosbag directories.")
-
-    for bag_path in bag_paths:
-        extract_and_save_per_bag(
-            bag_path=bag_path,
-            output_dir=args.outdir,
-            image_topic=args.image_topic,
-            odom_topic=args.odom_topic,
-            future_steps=args.future_steps,
-            future_interval=args.future_interval,
-            past_steps=args.past_steps,
-            past_interval=args.past_interval
+    print(f"[INFO] Found {len(bag_dirs)} rosbag directories.")
+    for bag_path in sorted(bag_dirs):
+        print(f"--- Processing {bag_path.name} ---")
+        extract_temporal_samples(
+            bag_path,
+            args.outdir,
+            args.image_topic,
+            args.cmd_topic,
+            args.odom_topic,
+            args.history_len,
+            args.history_step,
+            args.future_len,
+            args.future_step,
         )
 
-    print("\n[INFO] All processing finished.")
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

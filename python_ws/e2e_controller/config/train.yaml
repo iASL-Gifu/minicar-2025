@@ -6,7 +6,6 @@ dataset:
   sequence_length: 1
   image_height: 120
   image_width: 160
-  train_val_split_ratio: 0.8 # 学習データと検証データの分割比率
   transform_mode: "tensor"  # 'numpy'(最速), 'tensor'(高速), 'pil'(低速) から選択
 
 # --- 学習パラメータ ---

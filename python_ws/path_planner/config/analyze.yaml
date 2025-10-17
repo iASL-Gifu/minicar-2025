@@ -1,28 +1,37 @@
-ckpt_path: /home/arata-22/project/competition/minicar-2025/python_ws/path_planner/ckpts/train/2025-10-17/06-39-00/best_model.pth
-dataset_dir: ./datasets/train/
-output_dir: ./outputs/analyze/${now:%Y-%m-%d}/${now:%H-%M-%S}
-device: "cuda"
+# config/analyze.yaml
 
+# --- パス設定 ---
+dataset_dir: "./datasets/test"  # 分析したいデータセット 
+ckpt_path: "./ckpts/best_model.pth" # 読み込むモデル
+
+# --- モデルのどの部分を読み込むか ---
+# trajformer_only or all
+load_part: all # all, trajformer_only, control_only
+
+# --- デバイス ---
+device: cuda 
+
+# --- データセット (train.yaml と合わせる) ---
 dataset:
   image_height: 120
   image_width: 160
-  past_len: 5          # 過去オドメトリの履歴長
-  future_len: 10       # 未来軌跡の長さ
-  transform_mode: "tensor"
+  past_len: 10       
+  future_len: 30      
 
+# --- 学習 (Dataloaderの num_workers のために必要) ---
+training:
+  num_workers: 8
 
+# --- モデル (train.yaml と合わせる) ---
 model:
+  odom_dim: 8
   image_embedding_dim: 128
   motion_embedding_dim: 64
-  d_model: 192
+  d_model: 192  
   transformer_nhead: 6
   transformer_num_layers: 2
-  odom_dim: 8
-  future_out_dim: 3
 
-training:
-  num_workers: 16
-  
+# --- Hydra (ここですべての出力先が決まる) ---
 hydra:
   run:
     dir: ./outputs/analyze/${now:%Y-%m-%d}/${now:%H-%M-%S}

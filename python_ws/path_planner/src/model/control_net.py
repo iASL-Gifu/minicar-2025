@@ -1,26 +1,29 @@
 import torch
 import torch.nn as nn
 
-class ControlNet(nn.Module):
+class ControlFormer(nn.Module):
     """
-    軌跡予測結果からステア角・加速度を推定する軽量制御ネットワーク
+    Transformerベース制御ネット
     """
-    def __init__(self, future_len=30, traj_dim=3, hidden_dim=128):
+    def __init__(self, traj_dim=3, d_model=64, nhead=4, num_layers=2):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.Flatten(),  # (B, future_len * traj_dim)
-            nn.Linear(future_len * traj_dim, hidden_dim),
+        self.input_proj = nn.Linear(traj_dim, d_model)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=d_model * 2,
+            batch_first=True
+        )
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        self.pool = nn.AdaptiveAvgPool1d(1)  # 時系列方向を統合
+        self.fc = nn.Sequential(
+            nn.Linear(d_model, d_model),
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 2)  # 出力: [steer, accel]
+            nn.Linear(d_model, 2)  # [steer, accel]
         )
 
-    def forward(self, predicted_traj: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            predicted_traj: (B, future_len, 3)
-        Returns:
-            control_cmd: (B, 2) -> [steer, accel]
-        """
-        return self.model(predicted_traj)
+    def forward(self, predicted_traj):
+        x = self.input_proj(predicted_traj)
+        x = self.encoder(x)  # (B, T, d_model)
+        return self.fc(x)
