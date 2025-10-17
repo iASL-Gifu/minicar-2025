@@ -12,7 +12,7 @@ import time
 # 学習スクリプトで使用したモジュールを再利用
 from src.data.dataset import TrajectoryDataset   
 from src.data.transform import TestTransform
-from src.model.trajformer import TrajFormerNano
+from src.model.trajformer import TrajFormer
 
 # --- BEV描画関数 ---
 def transform_global_to_local(ref_pose_7d: np.ndarray, target_poses_7d: np.ndarray) -> np.ndarray:
@@ -105,7 +105,7 @@ def main(cfg: DictConfig) -> None:
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=cfg.training.num_workers)
 
     # --- モデル読み込み (Configから読み込み) ---
-    model = TrajFormerNano(
+    model = TrajFormer(
         history_len=cfg.dataset.past_len,
         odom_features=cfg.model.odom_dim,
         future_len=cfg.dataset.future_len,

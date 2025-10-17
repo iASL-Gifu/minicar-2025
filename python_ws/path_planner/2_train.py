@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.data.dataset import TrajectoryDataset   
 from src.data.transform import TrainTransform, TestTransform
-from src.model.trajformer import TrajFormerNano
+from src.model.trajformer import TrajFormer
 
 
 def get_kinematic_loss(predicted_trajectory, accel_weight=1.0, jerk_weight=1.0):
@@ -144,7 +144,7 @@ def main(cfg: DictConfig) -> None:
         print("→ Skipping validation phase (train loss will be used).")
 
     # --- モデル定義 ---
-    model = TrajFormerNano(
+    model = TrajFormer(
         history_len=cfg.dataset.past_len,
         odom_features=cfg.model.odom_dim,
         future_len=cfg.dataset.future_len,

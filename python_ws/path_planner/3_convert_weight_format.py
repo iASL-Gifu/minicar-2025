@@ -3,17 +3,17 @@ import argparse
 from pathlib import Path
 
 try:
-    from src.model.trajformer import TrajFormerNano
+    from src.model.trajformer import TrajFormer
 except ImportError:
     print("="*50)
-    print("[ERROR] 'from src.model.trajformer import TrajFormerNano' が失敗しました。")
+    print("[ERROR] 'from src.model.trajformer import TrajFormer' が失敗しました。")
     print("このスクリプトは、train.py と同じ階層（srcフォルダが見える場所）から実行してください。")
     print("="*50)
     exit(1)
 
 
 def main(args):
-    """TrajFormerNanoモデルをONNX形式に変換します。"""
+    """TrajFormerモデルをONNX形式に変換します。"""
 
     checkpoint_path = Path(args.checkpoint).resolve()
 
@@ -37,7 +37,7 @@ def main(args):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 1. モデルをロードし、評価モードにする
-    model = TrajFormerNano(
+    model = TrajFormer(
         history_len=args.past_len,
         odom_features=args.odom_dim,
         future_len=args.future_len,
@@ -51,7 +51,7 @@ def main(args):
     # CPUにマップして状態をロード (checkpoint_path を使用)
     model.load_state_dict(torch.load(checkpoint_path, map_location='cpu')) 
     model.eval()
-    print("✅ Model TrajFormerNano loaded successfully.")
+    print("✅ Model TrajFormer loaded successfully.")
 
     # 2. ONNXエクスポート用のダミー入力データを作成
     dummy_input_image = torch.randn(1, 3, args.height, {args.width})
@@ -89,7 +89,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Export a trained TrajFormerNano model to ONNX format.")
+    parser = argparse.ArgumentParser(description="Export a trained TrajFormer model to ONNX format.")
 
     # --- 基本的な引数 ---
     parser.add_argument(

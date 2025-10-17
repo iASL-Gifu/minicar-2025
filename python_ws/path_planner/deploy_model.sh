@@ -10,7 +10,7 @@
 # This script converts a local ONNX model to a TensorRT engine for deployment
 # with Triton inside the Isaac ROS environment.
 #
-# --- MODIFIED for Multi-Input models like TrajFormerNano ---
+# --- MODIFIED for Multi-Input models like TrajFormer ---
 
 # === Default arguments ===
 INPUT_ONNX_PATH="" 

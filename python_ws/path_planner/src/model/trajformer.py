@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchvision.models import mobilenet_v3_small
 
-class TrajFormerNano(nn.Module):
+class TrajFormer(nn.Module):
     """
     軽量Trajectory予測モデル:
     - 画像: MobileNetV3-Small で特徴抽出
@@ -89,12 +89,12 @@ class TrajFormerNano(nn.Module):
 # --- 実行スクリプト ---
 if __name__ == "__main__":
     # モデルのインスタンス化 (デフォルト設定)
-    model = TrajFormerNano()
+    model = TrajFormer()
     
     # 学習可能なパラメータ数を計算
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     
-    print(f"モデル: TrajFormerNano")
+    print(f"モデル: TrajFormer")
     print(f"総パラメータ数: {total_params:,}")
     print(f"総パラメータ数 (M): {total_params / 1_000_000:.2f} M")
 

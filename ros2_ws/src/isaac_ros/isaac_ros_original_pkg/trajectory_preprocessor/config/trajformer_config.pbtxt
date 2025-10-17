@@ -1,6 +1,6 @@
-# config.pbtxt for TrajFormerNano
+# config.pbtxt for TrajFormer
 
-name: "TrajFormerNano"
+name: "TrajFormer"
 platform: "tensorrt_plan"
 max_batch_size: 1
 

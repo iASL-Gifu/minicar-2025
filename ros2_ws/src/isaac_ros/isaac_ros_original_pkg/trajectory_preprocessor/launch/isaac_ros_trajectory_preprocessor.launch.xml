@@ -4,7 +4,7 @@
     <arg name="container_name" default="localization_container" />
 
     <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models/" />
-    <arg name="model_name" default="TrajFormerNano" />
+    <arg name="model_name" default="TrajFormer" />
 
     <arg name="input_image_topic" default="/realsense2_camera/color/image_raw" />
     <arg name="input_camera_info_topic" default="/realsense2_camera/color/camera_info" />
