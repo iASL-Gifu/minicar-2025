@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="container_name" default="trajectory_container" />
+    <arg name="params_file" default="$(find-pkg-share trajectory_preprocessor)/config/merge_sync_node.yaml" />
+    <arg name="image_tensor_topic" default="/dnn_image_encoder/encoded_tensor" />
+    <arg name="odom_topic" default="/visual_slam/tracking/odometry" />
+    <arg name="merged_tensor_topic" default="/merged_tensor_to_triton" />
+
+
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="trajectory_preprocessor"
+            plugin="trajectory_preprocessor::MergeSyncNode"
+            name="merge_sync_node">
+            
+            <param from="$(var params_file)" />
+
+            <remap from="tensor" to="$(var image_tensor_topic)" />
+            <remap from="odom" to="$(var odom_topic)" />
+            <remap from="tensor_pub" to="$(var merged_tensor_topic)" />
+            
+        </composable_node>
+    </load_composable_node>
+
+</launch>
