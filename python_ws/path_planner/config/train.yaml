@@ -5,26 +5,35 @@ data_path: "./datasets/"  # TrajectoryDataset の出力ディレクトリ
 dataset:
   image_height: 120
   image_width: 160
-  past_len: 5          # 過去オドメトリの履歴長
-  future_len: 10       # 未来軌跡の長さ
-  train_val_split_ratio: 0.8  # 学習/検証分割
-  transform_mode: "tensor"    # 'numpy', 'tensor', 'pil' から選択
+  past_len: 10          # 過去オドメトリの履歴長
+  future_len: 30       # 未来軌跡の長さ
 # --- 学習パラメータ ---
 training:
-  epochs: 50
+  # --- 【重要】モード切り替え ---
+  # 'all' : E2E学習
+  # 'path_generation' : 軌道予測 (TrajFormer) のみ学習
+  # 'path_follow' : 制御 (ControlFormer) のみ学習
+  mode: all 
+
   batch_size: 64
-  learning_rate: 1e-4
-  num_workers: 16
+  epochs: 100
+  learning_rate: 0.0003
+  num_workers: 8
+
+  # --- 損失の重み (各モードで必要なものだけが使われます) ---
+  loss_weights:
+    traj: 1.0     
+    cmd: 0.5      
+    smooth: 0.1
 
 # --- モデルのパラメータ ---
 model:
+  odom_dim: 8
   image_embedding_dim: 128
   motion_embedding_dim: 64
-  d_model: 192             # ← ここを transformer_d_model から変更
+  d_model: 192  
   transformer_nhead: 6
   transformer_num_layers: 2
-  odom_dim: 8
-  future_out_dim: 3
 
 
 # --- ログ・チェックポイント ---

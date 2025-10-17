@@ -26,5 +26,5 @@
     # (3) ONNXモデルが期待するオドメトリ入力名 (Tritonへ渡す名前)
     odom_tensor_name_in_model: "input_odoms" 
     
-    past_len: 5
+    past_len: 10
     odom_dim: 8
