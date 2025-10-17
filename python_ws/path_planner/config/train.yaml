@@ -1,0 +1,37 @@
+# --- データ関連の設定 ---
+data_path: "./datasets/"  # TrajectoryDataset の出力ディレクトリ
+
+# --- データセットと変換の設定 ---
+dataset:
+  image_height: 120
+  image_width: 160
+  past_len: 5          # 過去オドメトリの履歴長
+  future_len: 10       # 未来軌跡の長さ
+  train_val_split_ratio: 0.8  # 学習/検証分割
+  transform_mode: "tensor"    # 'numpy', 'tensor', 'pil' から選択
+# --- 学習パラメータ ---
+training:
+  epochs: 50
+  batch_size: 64
+  learning_rate: 1e-4
+  num_workers: 16
+
+# --- モデルのパラメータ ---
+model:
+  image_embedding_dim: 128
+  motion_embedding_dim: 64
+  d_model: 192             # ← ここを transformer_d_model から変更
+  transformer_nhead: 6
+  transformer_num_layers: 2
+  odom_dim: 8
+  future_out_dim: 3
+
+
+# --- ログ・チェックポイント ---
+log_dir: ./logs/train/${now:%Y-%m-%d}/${now:%H-%M-%S}  
+ckpt_dir: ./ckpts/train/${now:%Y-%m-%d}/${now:%H-%M-%S}  
+
+# --- Hydra 実行ディレクトリ ---
+hydra:
+  run:
+    dir: ./outputs/train/${now:%Y-%m-%d}/${now:%H-%M-%S}
