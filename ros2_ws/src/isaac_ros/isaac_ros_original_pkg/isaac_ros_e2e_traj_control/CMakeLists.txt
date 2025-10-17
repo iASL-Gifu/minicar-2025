@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.22.1)
-project(trajectory_preprocessor)
+project(isaac_ros_e2e_traj_control)
 
 # --- 1. 必要なパッケージを検索 ---
 # パッケージ作成時に指定した依存関係
@@ -53,7 +53,7 @@ target_link_libraries(merge_sync_node PUBLIC
 
 # --- 4. コンポーネントノードとして登録 ---
 rclcpp_components_register_nodes(merge_sync_node
-  "trajectory_preprocessor::MergeSyncNode"
+  "isaac_ros_e2e_traj_control::MergeSyncNode"
 )
 
 # --- 5. インストール設定 ---

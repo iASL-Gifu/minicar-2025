@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <launch>    
-    <arg name="params_file" default="$(find-pkg-share trajectory_preprocessor)/config/merge_sync_node.yaml" />
+    <arg name="params_file" default="$(find-pkg-share isaac_ros_e2e_traj_control)/config/merge_sync_node.yaml" />
     <arg name="container_name" default="localization_container" />
 
     <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models/" />
-    <arg name="model_name" default="TrajFormer" />
+    <arg name="model_name" default="trajcontrolnet" />
 
     <arg name="input_image_topic" default="/realsense2_camera/color/image_raw" />
     <arg name="input_camera_info_topic" default="/realsense2_camera/color/camera_info" />
@@ -43,8 +43,8 @@
 
     <load_composable_node target="$(var container_name)">
         <composable_node
-            pkg="trajectory_preprocessor"
-            plugin="trajectory_preprocessor::MergeSyncNode"
+            pkg="isaac_ros_e2e_traj_control"
+            plugin="isaac_ros_e2e_traj_control::MergeSyncNode"
             name="merge_sync_node">
             
             <param from="$(var params_file)" />
