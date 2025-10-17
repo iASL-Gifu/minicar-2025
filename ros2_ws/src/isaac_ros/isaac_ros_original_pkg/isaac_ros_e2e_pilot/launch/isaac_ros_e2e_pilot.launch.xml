@@ -42,7 +42,7 @@
         <composable_node
             pkg="isaac_ros_triton"
             plugin="nvidia::isaac_ros::dnn_inference::TritonNode"
-            name="triton_node">
+            name="triton_pilotnet_node">
             <param name="model_name" value="$(var model_name)" />
             <param name="model_repository_paths" value="['$(var model_repository_path)']" />
             
