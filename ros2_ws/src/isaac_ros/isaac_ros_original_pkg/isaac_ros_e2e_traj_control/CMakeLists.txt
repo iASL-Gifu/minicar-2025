@@ -24,26 +24,26 @@ find_package(OpenCV REQUIRED) # C++コードがOpenCV APIを直接使うため
 
 # --- 2. ノードのライブラリを作成 ---
 add_library(merge_sync_node SHARED
-  src/merge_sync_node.cpp
+  src/merge_sync_node.cpp
 )
 
 target_include_directories(merge_sync_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-  ${OpenCV_INCLUDE_DIRS}
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 # --- 3. 依存関係をリンク ---
 ament_target_dependencies(merge_sync_node PUBLIC
-  "rclcpp"
-  "rclcpp_components"
+  "rclcpp"
+  "rclcpp_components"
   "cv_bridge"
-  "sensor_msgs"
-  "nav_msgs"
-  "isaac_ros_nitros"
-  "isaac_ros_nitros_image_type"
-  "isaac_ros_nitros_tensor_list_type"
-  "isaac_ros_common"
+  "sensor_msgs"
+  "nav_msgs"
+  "isaac_ros_nitros"
+  "isaac_ros_nitros_image_type"
+  "isaac_ros_nitros_tensor_list_type"
+  "isaac_ros_common"
 )
 
 # OpenCVライブラリをリンク
@@ -53,7 +53,7 @@ target_link_libraries(merge_sync_node PUBLIC
 
 # --- 4. コンポーネントノードとして登録 ---
 rclcpp_components_register_nodes(merge_sync_node
-  "isaac_ros_e2e_traj_control::MergeSyncNode"
+  "isaac_ros_e2e_traj_control::MergeSyncNode"
 )
 
 # --- 5. インストール設定 ---
@@ -63,11 +63,13 @@ install(
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
 install(
   DIRECTORY include/
   DESTINATION include
 )
 
+# launch と config ディレクトリをインストール
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
