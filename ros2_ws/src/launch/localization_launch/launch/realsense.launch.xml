@@ -1,0 +1,35 @@
+<launch>
+    <!-- GPU上で確保するメモリサイズ -->
+    <arg name="camera_width" default="640" />
+    <arg name="camera_height" default="480" />
+    <arg name="realsense_config_file" default="$(find-pkg-share localization_launch)/config/realsense.yaml" />
+    <arg name="vslam_config_file" default="$(find-pkg-share localization_launch)/config/vslam.yaml" />
+    <arg name="global_localization" default="false" />
+
+    <node_container pkg="rclcpp_components" exec="component_container_mt" name="localization_container" namespace="">
+
+        <!-- RealSense camera node -->
+        <composable_node pkg="realsense2_camera" plugin="realsense2_camera::RealSenseNodeFactory" name="realsense2_camera" namespace="">
+            <param from="$(var realsense_config_file)" />
+            <remap from="realsense2_camera/infra1/image_rect_raw" to="/infra1/image_rect_raw_mono" />
+            <remap from="realsense2_camera/infra1/camera_info" to="/left/camera_info_rect" />
+            <remap from="realsense2_camera/infra2/image_rect_raw" to="/infra2/image_rect_raw_mono" />
+            <remap from="realsense2_camera/infra2/camera_info" to="/right/camera_info_rect" />
+            <remap from="/realsense2_camera/imu" to="/camera/imu" />
+        </composable_node>
+
+    </node_container>
+
+    <node pkg="tf2_ros" exec="static_transform_publisher"
+      name="base_to_camera_publisher"
+      args="0 0 0 0 0 0 base_link camera_link"/>
+
+    <group if="$(var global_localization)">
+        <node pkg="frame_id_exchanger" exec="frame_id_exchanger" name="frame_id_exchanger_right" namespace="">
+            <param name="input_topic" value="/right/camera_info_rect" />
+            <param name="output_topic" value="/right/camera_info_rect_fixed" />
+            <param name="new_frame_id" value="camera_infra2_optical_frame" />
+        </node>
+    </group>
+
+</launch>

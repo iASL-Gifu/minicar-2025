@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    output_dir: "/workspaces/record/"
+    all_topics: false
+    topics: 
+      - /infra1/image_rect_raw_mono
+      - /right/camera_info_rect_fixed
+      - /left/camera_info_rect
+      - /infra2/image_rect_raw_mono
+      - /realsense2_camera/infra1/image_rect_raw/compressed
+      - /realsense2_camera/infra2/image_rect_raw/compressed
+      - /tf_static
+      - /tf
+      - /camera/imu

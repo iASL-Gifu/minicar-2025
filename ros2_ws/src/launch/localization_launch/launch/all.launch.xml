@@ -1,0 +1,58 @@
+<launch>
+    <!-- GPU上で確保するメモリサイズ -->
+    <arg name="camera_width" default="640" />
+    <arg name="camera_height" default="480" />
+    <arg name="realsense_config_file" default="$(find-pkg-share localization_launch)/config/realsense.yaml" />
+    <arg name="vslam_config_file" default="$(find-pkg-share localization_launch)/config/vslam.yaml" />
+
+    <node_container pkg="rclcpp_components" exec="component_container_mt" name="localization_container" namespace="">
+
+        <!-- RealSense camera node -->
+        <composable_node pkg="realsense2_camera" plugin="realsense2_camera::RealSenseNodeFactory" name="realsense2_camera" namespace="">
+            <param from="$(var realsense_config_file)" />
+            <remap from="realsense2_camera/infra1/image_rect_raw" to="/infra1/image_rect_raw_mono" />
+            <remap from="realsense2_camera/infra1/camera_info" to="/left/camera_info_rect" />
+            <remap from="realsense2_camera/infra2/image_rect_raw" to="/infra2/image_rect_raw_mono" />
+            <remap from="realsense2_camera/infra2/camera_info" to="/right/camera_info_rect" />
+            <remap from="/realsense2_camera/imu" to="/camera/imu" />
+        </composable_node>
+
+        <!-- Left image format converter (MONO to MONO for VSLAM - GPU transfer) -->
+        <composable_node pkg="isaac_ros_image_proc" plugin="nvidia::isaac_ros::image_proc::ImageFormatConverterNode" name="image_format_vslam_left" namespace="">
+            <param name="encoding_desired" value="mono8" />
+            <param name="image_width" value="$(var camera_width)" />
+            <param name="image_height" value="$(var camera_height)" />
+            <remap from="image_raw" to="infra1/image_rect_raw_mono" />
+            <remap from="image" to="left/image_rect_mono" />
+        </composable_node>
+
+        <!-- Right image format converter (MONO to MONO for VSLAM - GPU transfer) -->
+        <composable_node pkg="isaac_ros_image_proc" plugin="nvidia::isaac_ros::image_proc::ImageFormatConverterNode" name="image_format_vslam_right" namespace="">
+            <param name="encoding_desired" value="mono8" />
+            <param name="image_width" value="$(var camera_width)" />
+            <param name="image_height" value="$(var camera_height)" />
+            <remap from="image_raw" to="infra2/image_rect_raw_mono" />
+            <remap from="image" to="right/image_rect_mono" />
+        </composable_node>
+
+        <!-- Visual SLAM node -->
+        <composable_node pkg="isaac_ros_visual_slam" plugin="nvidia::isaac_ros::visual_slam::VisualSlamNode" name="visual_slam_node" namespace="">
+            <param from="$(var vslam_config_file)" />
+            <remap from="/visual_slam/image_0" to="left/image_rect_mono" />
+            <remap from="/visual_slam/camera_info_0" to="left/camera_info_rect" />
+            <remap from="/visual_slam/image_1" to="right/image_rect_mono" />
+            <remap from="/visual_slam/camera_info_1" to="right/camera_info_rect" />
+            <remap from="/visual_slam/image_2" to="rear_left/image_rect_mono" />
+            <remap from="/visual_slam/camera_info_2" to="rear_left/camera_info_rect" />
+            <remap from="/visual_slam/image_3" to="rear_right/image_rect_mono" />
+            <remap from="/visual_slam/camera_info_3" to="rear_right/camera_info_rect" />
+            <remap from="/visual_slam/imu" to="camera/imu" />
+        </composable_node>
+
+    </node_container>
+
+    <node pkg="tf2_ros" exec="static_transform_publisher"
+      name="base_to_camera_publisher"
+      args="0 0 0 0 0 0 base_link camera_link"/>
+
+</launch>
