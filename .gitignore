@@ -134,8 +134,8 @@ dmypy.json
 
 # VCS managed repositories
 ros2_ws/src/isaac_ros/isaac_ros_common/
-ros2_ws/src/isaac_ros/isaac_ros_visual_slam/
-ros2_ws/src/rtabmap_ros/
+ros2_ws/src/isaac_ros/isaac_ros_mapping_and_localization/
+ros2_ws/src/ros2bag_extensions/
 
 # ROS 2 Workspace Directories
 ros2_ws/build/
@@ -143,7 +143,8 @@ ros2_ws/log/
 ros2_ws/install/
 
 # Isaac ROS Visual SLAM map database files
-ros2_ws/src/launch/localization_launch/map/*.mdb
+ros2_ws/src/launch/localization_launch/map/
+ros2_ws/src/launch/localization_launch/keyframes
 
 # debug data
 /debug

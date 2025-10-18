@@ -5,3 +5,13 @@ repositories:
     type: git
     url: https://github.com/Arata-Stu/isaac_ros_common.git
     version: dev
+
+  ros2_ws/src/ros2bag_extensions:
+    type: git
+    url: https://github.com/tier4/ros2bag_extensions.git
+    version: main
+
+  ros2_ws/src/isaac_ros/isaac_ros_mapping_and_localization:
+    type: git
+    url: git@github.com:iASL-Gifu/isaac_ros_mapping_and_localization.git
+    version: release-3.2
