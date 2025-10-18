@@ -1,7 +1,17 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
-# (ライセンスヘッダーは適切に設定してください)
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,63 +19,67 @@ cmake_minimum_required(VERSION 3.22.1)
 project(isaac_ros_e2e_traj_control)
 
 # --- 1. 必要なパッケージを検索 ---
-# パッケージ作成時に指定した依存関係
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(sensor_msgs REQUIRED)
+# cv_bridge と sensor_msgs は odom_to_tensor_node では不要
 find_package(nav_msgs REQUIRED)
 find_package(isaac_ros_nitros REQUIRED)
 find_package(isaac_ros_nitros_image_type REQUIRED)
 find_package(isaac_ros_nitros_tensor_list_type REQUIRED)
 find_package(isaac_ros_common REQUIRED)
-find_package(OpenCV REQUIRED) # C++コードがOpenCV APIを直接使うため
+
+# CUDA ランタイムライブラリを見つける (必須)
+find_package(CUDA REQUIRED)
 
 # --- 2. ノードのライブラリを作成 ---
-add_library(merge_sync_node SHARED
-  src/merge_sync_node.cpp
+# ターゲット名とソースファイルを odom_to_tensor_node に変更
+add_library(odom_to_tensor_node SHARED
+  src/odom_to_tensor_node.cpp
 )
 
-target_include_directories(merge_sync_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-  ${OpenCV_INCLUDE_DIRS}
+target_include_directories(odom_to_tensor_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  # OpenCV の代わりに CUDA のインクルードパスを追加
+  ${CUDA_INCLUDE_DIRS}
 )
 
 # --- 3. 依存関係をリンク ---
-ament_target_dependencies(merge_sync_node PUBLIC
-  "rclcpp"
-  "rclcpp_components"
-  "cv_bridge"
-  "sensor_msgs"
-  "nav_msgs"
-  "isaac_ros_nitros"
-  "isaac_ros_nitros_image_type"
-  "isaac_ros_nitros_tensor_list_type"
-  "isaac_ros_common"
+# ターゲット名を変更
+ament_target_dependencies(odom_to_tensor_node PUBLIC
+  "rclcpp"
+  "rclcpp_components"
+  # cv_bridge と sensor_msgs は不要
+  "nav_msgs"
+  "isaac_ros_nitros"
+  "isaac_ros_nitros_image_type"
+  "isaac_ros_nitros_tensor_list_type"
+  "isaac_ros_common"
 )
 
-# OpenCVライブラリをリンク
-target_link_libraries(merge_sync_node PUBLIC
-  ${OpenCV_LIBRARIES}
+# OpenCV の代わりに CUDA ランタイムライブラリをリンク
+target_link_libraries(odom_to_tensor_node PUBLIC
+  CUDA::cudart
 )
 
 # --- 4. コンポーネントノードとして登録 ---
-rclcpp_components_register_nodes(merge_sync_node
-  "isaac_ros_e2e_traj_control::MergeSyncNode"
+# ターゲット名とクラス名を変更 (名前空間に注意)
+rclcpp_components_register_nodes(odom_to_tensor_node
+  "nvidia::isaac_ros::e2e_traj_control::OdomToTensorNode"
 )
 
 # --- 5. インストール設定 ---
 install(
-  TARGETS merge_sync_node
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
+  # ターゲット名を変更
+  TARGETS odom_to_tensor_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 install(
-  DIRECTORY include/
-  DESTINATION include
+  DIRECTORY include/
+  DESTINATION include
 )
 
 install(
