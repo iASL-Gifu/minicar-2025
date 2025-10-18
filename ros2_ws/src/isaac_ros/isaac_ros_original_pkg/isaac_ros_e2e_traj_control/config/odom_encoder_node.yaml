@@ -15,16 +15,8 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-# config/params.yaml
+
 /**:
   ros__parameters:
-    # (1) ★最重要★
-    # Launchファイルの 'encoder_output_tensor_name' の値と一致させる
-    image_tensor_name_in_list: "input_1" 
-    # (2) ONNXモデルが期待する画像入力名 (Tritonへ渡す名前)
-    image_tensor_name_in_model: "input_image" 
-    # (3) ONNXモデルが期待するオドメトリ入力名 (Tritonへ渡す名前)
-    odom_tensor_name_in_model: "input_odoms" 
-    
-    past_len: 10
-    odom_dim: 8
+    tensor_name: input_odoms
+    history_size: 10

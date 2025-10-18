@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>    
-    <arg name="params_file" default="$(find-pkg-share isaac_ros_e2e_traj_control)/config/merge_sync_node.yaml" />
+    <arg name="odom_encoder_node_param" default="$(find-pkg-share isaac_ros_e2e_traj_control)/config/odom_encoder_node.yaml" />
     <arg name="container_name" default="localization_container" />
 
     <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models/" />
@@ -11,13 +11,13 @@
     <arg name="odom_topic" default="/visual_slam/tracking/odometry" />
 
     <arg name="image_tensor_topic" default="/encoder/tensor_pub" />
+    <arg name="odom_tensor_topic" default="/odom_encoder/tensor_pub" />
     <arg name="merged_tensor_topic" default="/merged_tensor_to_triton" />
     <arg name="triton_output_topic" default="/triton/trajectory_output" />
 
-    <arg name="encoder_output_tensor_name" default="input_1" />
-    
+    <arg name="encoder_output_tensor_name" default="input_image" />
     <arg name="triton_input_tensor_names" default="['input_image', 'input_odoms']" />
-    <arg name="triton_output_tensor_names" default="['output_trajectory']" />
+    <arg name="triton_output_tensor_names" default="['output_trajectory', 'output_commands']" />
 
     <arg name="network_image_width" default="160" />
     <arg name="network_image_height" default="120" />
@@ -44,14 +44,26 @@
     <load_composable_node target="$(var container_name)">
         <composable_node
             pkg="isaac_ros_e2e_traj_control"
-            plugin="isaac_ros_e2e_traj_control::MergeSyncNode"
-            name="merge_sync_node">
+            plugin="isaac_ros_e2e_traj_control::OdomEncoderNode"
+            name="odom_encoder_node">
+
+            <param from="$(var odom_encoder_node_param)" />
+
+            <remap from="odom_input" to="$(var odom_topic)" />
+            <remap from="odom_tensor" to="$(var odom_tensor_topic)" />
             
-            <param from="$(var params_file)" />
-            
-            <remap from="tensor" to="$(var image_tensor_topic)" />
-            <remap from="odom" to="$(var odom_topic)" />
-            <remap from="tensor_pub" to="$(var merged_tensor_topic)" />
+        </composable_node>
+    </load_composable_node>
+
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="isaac_ros_e2e_traj_control"
+            plugin="isaac_ros_e2e_traj_control::TensorListJoinerNode"
+            name="tensor_list_joiner_node">
+
+            <remap from="image_tensor_list" to="$(var image_tensor_topic)" />
+            <remap from="odom_tensor_list" to="$(var odom_tensor_topic)" />
+            <remap from="combined_tensor_list" to="$(var merged_tensor_topic)" />
             
         </composable_node>
     </load_composable_node>
@@ -69,10 +81,10 @@
             <param name="output_tensor_names" value="$(var triton_output_tensor_names)" />
 
             <param name="input_binding_names" value="['input_image', 'input_odoms']" />
-            <param name="output_binding_names" value="['output_trajectory']" />
+            <param name="output_binding_names" value="['output_trajectory', 'output_commands']" />
             
             <param name="input_tensor_formats" value="['nitros_tensor_list_nchw_rgb_f32', 'nitros_tensor_list_nhwc_rgb_f32']" />
-            <param name="output_tensor_formats" value="['nitros_tensor_list_nhwc_rgb_f32']" />
+            <param name="output_tensor_formats" value="['nitros_tensor_list_nhwc_rgb_f32', 'nitros_tensor_list_nhwc_rgb_f32']" />
 
             <remap from="tensor_sub" to="$(var merged_tensor_topic)" />
             <remap from="tensor_pub" to="$(var triton_output_topic)" />
