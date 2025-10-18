@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from trajformer import TrajFormer
-from control_net import ControlFormer
+from .trajformer import TrajFormer
+from .control_net import ControlFormer
 
 class TrajControlFormer(nn.Module):
     """
