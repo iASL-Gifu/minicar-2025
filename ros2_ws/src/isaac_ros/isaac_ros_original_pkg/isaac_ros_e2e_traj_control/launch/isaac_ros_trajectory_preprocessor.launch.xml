@@ -41,7 +41,7 @@
         <arg name="final_tensor_name" value="$(var encoder_output_tensor_name)" />
         <arg name="attach_to_shared_component_container" value="True" />
         <arg name="component_container_name" value="$(var container_name)" />
-        <arg name="dnn_image_encoder_namespace" value="pilotnet_encoder" />
+        <arg name="dnn_image_encoder_namespace" value="trajcontrolnet_encoder" />
     </include>
 
     <load_composable_node target="$(var container_name)">
