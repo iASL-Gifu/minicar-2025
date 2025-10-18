@@ -46,6 +46,7 @@ private:
   std::string trajectory_tensor_name_;
   std::string commands_tensor_name_;
   std::string path_frame_id_;
+  size_t command_index_;
 };
 
 }  // namespace isaac_ros_e2e_traj_control
