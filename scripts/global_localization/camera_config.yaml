@@ -1,0 +1,6 @@
+stereo_cameras:
+  - name: realsense
+    left: /infra1/image_rect_raw_mono
+    left_camera_info: /left/camera_info_rect
+    right: /infra2/image_rect_raw_mono
+    right_camera_info: /right/camera_info_rect_fixed
