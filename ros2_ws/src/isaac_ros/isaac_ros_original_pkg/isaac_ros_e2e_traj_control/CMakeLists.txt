@@ -58,14 +58,14 @@ rclcpp_components_register_nodes(merge_sync_node
 
 # --- 5. インストール設定 ---
 install(
-  TARGETS merge_sync_node
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
+  TARGETS merge_sync_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 install(
-  DIRECTORY include/
-  DESTINATION include
+  DIRECTORY include/
+  DESTINATION include
 )
 
 install(
