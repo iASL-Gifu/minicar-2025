@@ -29,15 +29,21 @@ SPDX-License-Identifier: Apache-2.0
 
   <build_depend>rclcpp</build_depend>
   <build_depend>rclcpp_components</build_depend>
-  <build_depend>nav_msgs</build_depend> <build_depend>isaac_ros_nitros</build_depend>
-  <build_depend>isaac_ros_nitros_image_type</build_depend> <build_depend>isaac_ros_nitros_tensor_list_type</build_depend>
+  <build_depend>nav_msgs</build_depend>
   <build_depend>isaac_ros_common</build_depend>
+  <build_depend>isaac_ros_nitros</build_depend>
+  <build_depend>isaac_ros_nitros_tensor_list_type</build_depend>
+  <build_depend>isaac_ros_managed_nitros</build_depend>
+  <build_depend>isaac_ros_gxf</build_depend>
 
   <exec_depend>rclcpp</exec_depend>
   <exec_depend>rclcpp_components</exec_depend>
-  <exec_depend>nav_msgs</exec_depend> <exec_depend>isaac_ros_nitros</exec_depend>
-  <exec_depend>isaac_ros_nitros_image_type</exec_depend> <exec_depend>isaac_ros_nitros_tensor_list_type</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
   <exec_depend>isaac_ros_common</exec_depend>
+  <exec_depend>isaac_ros_nitros</exec_depend>
+  <exec_depend>isaac_ros_nitros_tensor_list_type</exec_depend>
+  <exec_depend>isaac_ros_managed_nitros</exec_depend>
+  <exec_depend>isaac_ros_gxf</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

@@ -15,6 +15,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
+
 #ifndef ISAAC_ROS_E2E_TRAJ_CONTROL__ODOM_TO_TENSOR_NODE_HPP_
 #define ISAAC_ROS_E2E_TRAJ_CONTROL__ODOM_TO_TENSOR_NODE_HPP_
 
@@ -28,8 +30,8 @@
 #include <cuda_runtime.h>
 #include <string>
 #include <vector>
-#include <deque>   // 履歴バッファ用
-#include <cmath>   // std::sqrt用
+#include <deque>
+#include <cmath>
 
 namespace nvidia
 {
@@ -38,9 +40,12 @@ namespace isaac_ros
 namespace e2e_traj_control
 {
 
-// Pythonロジックに基づく8次元ベクトル
+// 8次元ベクトル (pos[3] + ori[4] + speed[1])
 constexpr int kOdomVectorSize = 8;
 
+/**
+ * @brief nav_msgs::msg::Odometry の過去Nフレームを [N, 8] のテンソルに変換するノード
+ */
 class OdomToTensorNode : public rclcpp::Node
 {
 public:
@@ -50,21 +55,19 @@ public:
 private:
   void OdomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr msg);
 
-  // 標準ROS (CPU) からの入力
+  // 入力 (標準ROS)
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odom_;
 
-  // NITROS (GPU) への出力
+  // 出力 (NITROS)
   std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
     nvidia::isaac_ros::nitros::NitrosTensorList>> nitros_tensor_pub_;
 
-  // QoS設定
   const rclcpp::QoS input_qos_;
   const rclcpp::QoS output_qos_;
 
-  // CUDA操作用のストリーム
   cudaStream_t stream_;
 
-  // --- 履歴バッファ関連 ---
+  // 履歴バッファ
   std::deque<std::vector<float>> odom_buffer_;
   std::vector<float> flat_cpu_buffer_;
 
