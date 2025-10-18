@@ -19,7 +19,7 @@
 /**:
   ros__parameters:
     # 推論ノードが出力するテンソルの名前
-    tensor_name: "output_tensor"
+    tensor_name: "output_1"
     # モデルの出力値を調整するスケール係数
     steer_scale: 1.0
     speed_scale: 1.0
