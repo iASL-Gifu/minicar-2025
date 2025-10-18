@@ -44,6 +44,14 @@ set_target_properties(tensor_list_joiner_node PROPERTIES
   BUILD_RPATH_USE_ORIGIN TRUE
   INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+ament_auto_add_library(trajcontrolnet_decoder_node SHARED src/trajcontrolnet_decoder_node.cpp)
+rclcpp_components_register_nodes(trajcontrolnet_decoder_node "isaac_ros_e2e_traj_control::TrajcontrolnetDecoderNode")
+set(node_plugins "${node_plugins}isaac_ros_e2e_traj_control::TrajcontrolnetDecoderNode;$<TARGET_FILE:trajcontrolnet_decoder_node>\n")
+set_target_properties(trajcontrolnet_decoder_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # Embed versioning information into installed files
 ament_index_get_resource(ISAAC_ROS_COMMON_CMAKE_PATH isaac_ros_common_cmake_path isaac_ros_common)
 include("${ISAAC_ROS_COMMON_CMAKE_PATH}/isaac_ros_common-version-info.cmake")
