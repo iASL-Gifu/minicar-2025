@@ -9,13 +9,11 @@
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY, either express or implied.
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-
-#pragma once
 
 #ifndef ISAAC_ROS_E2E_TRAJ_CONTROL__ODOM_TO_TENSOR_NODE_HPP_
 #define ISAAC_ROS_E2E_TRAJ_CONTROL__ODOM_TO_TENSOR_NODE_HPP_
@@ -24,8 +22,8 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_builder.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
-#include "nvidia/isaac_ros/nitros/managed_nitros_publisher.hpp"
 #include "isaac_ros_common/qos.hpp"
+#include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
 
 #include <cuda_runtime.h>
 #include <string>
@@ -43,10 +41,7 @@ namespace e2e_traj_control
 // Pythonロジックに基づく8次元ベクトル
 constexpr int kOdomVectorSize = 8;
 
-/**
- * @brief nav_msgs::msg::Odometry の過去Nフレームを [N, 8] のテンソルに変換するノード
- */
-class OdomToTensorNode : public rclcpp.Node
+class OdomToTensorNode : public rclcpp::Node
 {
 public:
   explicit OdomToTensorNode(const rclcpp::NodeOptions & options);
@@ -70,11 +65,7 @@ private:
   cudaStream_t stream_;
 
   // --- 履歴バッファ関連 ---
-
-  // 履歴バッファ (Nフレーム分の8次元ベクトルを保持)
   std::deque<std::vector<float>> odom_buffer_;
-
-  // CPU側でGPU転送用に平坦化 (Flatten) するための一時バッファ
   std::vector<float> flat_cpu_buffer_;
 
   // パラメータ
