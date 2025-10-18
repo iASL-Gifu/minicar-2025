@@ -87,7 +87,7 @@
             <param name="input_binding_names" value="['input_image', 'input_odoms']" />
             <param name="output_binding_names" value="['output_trajectory', 'output_commands']" />
             
-            <param name="input_tensor_formats" value="['nitros_tensor_list_nchw_rgb_f32', 'nitros_tensor_list_nhwc_rgb_f32']" />
+            <param name="input_tensor_formats" value="['nitros_tensor_list_nchw_rgb_f32', 'nitros_tensor_list_nchw_rgb_f32']" />
             <param name="output_tensor_formats" value="['nitros_tensor_list_nhwc_rgb_f32', 'nitros_tensor_list_nhwc_rgb_f32']" />
 
             <remap from="tensor_sub" to="$(var triton_output_topic)" />

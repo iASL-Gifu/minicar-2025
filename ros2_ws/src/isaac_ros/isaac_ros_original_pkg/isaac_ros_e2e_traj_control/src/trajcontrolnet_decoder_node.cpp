@@ -30,7 +30,7 @@ TrajcontrolnetDecoderNode::TrajcontrolnetDecoderNode(const rclcpp::NodeOptions o
         nvidia::isaac_ros::nitros::NitrosTensorListView>>(
       this,
       "tensor_input",
-      nvidia::isaac_ros::nitros::nitros_tensor_list_nhwc_rgb_f32_t::supported_type_name,
+      nvidia::isaac_ros::nitros::nitros_tensor_list_nhwc_rgb_f32::supported_type_name,
       std::bind(&TrajcontrolnetDecoderNode::InputCallback, this,
       std::placeholders::_1))},
   pub_path_{create_publisher<nav_msgs::msg::Path>("~/path", 10)},
