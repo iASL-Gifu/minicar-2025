@@ -17,12 +17,4 @@
     </include>
 
 
-    <!-- recording用 -->
-    <group if="$(var record)">
-        <!-- bag manager node -->
-        <include file="$(find-pkg-share bag_manager_py)/launch/bag_manager_node.launch.xml">
-            <arg name="input_trigger_topic" value="$(var rosbag_trigger_topic)"/>
-        </include>
-    </group>
-
 </launch>

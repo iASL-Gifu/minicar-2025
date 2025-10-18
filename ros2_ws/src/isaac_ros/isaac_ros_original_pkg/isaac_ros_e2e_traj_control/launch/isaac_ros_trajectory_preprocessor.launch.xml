@@ -89,8 +89,8 @@
             <param name="input_tensor_formats" value="['nitros_tensor_list_nchw_rgb_f32', 'nitros_tensor_list_nhwc_rgb_f32']" />
             <param name="output_tensor_formats" value="['nitros_tensor_list_nhwc_rgb_f32', 'nitros_tensor_list_nhwc_rgb_f32']" />
 
-            <remap from="tensor_sub" to="$(var merged_tensor_topic)" />
-            <remap from="tensor_pub" to="$(var triton_output_topic)" />
+            <remap from="tensor_sub" to="$(var triton_output_topic)" />
+            <remap from="tensor_pub" to="$(var merged_tensor_topic)" />
         </composable_node>
     </load_composable_node>
 
@@ -105,8 +105,8 @@
             <param name="path_frame_id" value="odom" />
 
             <remap from="tensor_input" to="$(var triton_output_topic)" />
-            <remap from="decoder/path" to="$(var output_path_topic)" />
-            <remap from="decoder/control_cmd" to="$(var output_cmd_topic)" />
+            <remap from="~/path" to="$(var output_path_topic)" />
+            <remap from="~/control_cmd" to="$(var output_cmd_topic)" />
         </composable_node>
     </load_composable_node>
 
