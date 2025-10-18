@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>    
-    <arg name="odom_encoder_node_param" default="$(find-pkg-share isaac_ros_e2e_traj_control)/config/odom_encoder_node.yaml" />
+    <arg name="odom_encoder_node_param" default="$(find-pkg-share isaac_ros_e2e_traj_control)/config/odom_encoder_node.param.yaml" />
+    <arg name="trajcontrolnet_decoder_node_param" default="$(find-pkg-share isaac_ros_e2e_traj_control)/config/trajcontrolnet_decoder_node.param.yaml" />
     <arg name="container_name" default="localization_container" />
 
     <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models/" />
@@ -100,9 +101,7 @@
             plugin="isaac_ros_e2e_traj_control::TrajcontrolnetDecoderNode"
             name="trajcontrolnet_decoder_node">
             
-            <param name="trajectory_tensor_name" value="output_trajectory" />
-            <param name="commands_tensor_name" value="output_commands" />
-            <param name="path_frame_id" value="odom" />
+            <param from="$(var trajcontrolnet_decoder_node_param)" />
 
             <remap from="tensor_input" to="$(var triton_output_topic)" />
             <remap from="~/path" to="$(var output_path_topic)" />

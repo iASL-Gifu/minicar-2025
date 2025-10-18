@@ -48,7 +48,7 @@ void TrajcontrolnetDecoderNode::InputCallback(const nvidia::isaac_ros::nitros::N
   auto commands_tensor = msg.GetNamedTensor(commands_tensor_name_);
 
   if (trajectory_tensor.GetBuffer() == nullptr || commands_tensor.GetBuffer() == nullptr) {
-    RCLCPP_ERROR(this->get_logger(), "Failed to get one or both tensors by name.");
+    RCLCPP_ERROR(this->get_logger(), "Failed to get one or both tensors by name. Check Triton config.pbtxt output names.");
     return;
   }
 
@@ -56,27 +56,40 @@ void TrajcontrolnetDecoderNode::InputCallback(const nvidia::isaac_ros::nitros::N
   const auto & cmd_shape = commands_tensor.GetShape().shape();
 
   // 形状の妥当性チェック
-  if (traj_shape.rank() != 2 || traj_shape.dimension(1) != 3 ||
-      cmd_shape.rank() != 2 || cmd_shape.dimension(1) != 2 ||
-      traj_shape.dimension(0) != cmd_shape.dimension(0))
+  // 軌跡 (Trajectory) が [1, 30, 3] であることを期待
+  if (traj_shape.rank() != 3 || traj_shape.dimension(0) != 1 ||
+      traj_shape.dimension(1) != 30 || traj_shape.dimension(2) != 3)
   {
     RCLCPP_ERROR(
-      this->get_logger(), "Unexpected tensor dimensions. "
-      "Traj [Rank %u, Dims(%d, %d)] vs Expected [Rank 2, Dims(30, 3)]. "
-      "Cmd [Rank %u, Dims(%d, %d)] vs Expected [Rank 2, Dims(30, 2)].",
-      traj_shape.rank(), // %u
-      traj_shape.rank() > 0 ? traj_shape.dimension(0) : -1, 
-      traj_shape.rank() > 1 ? traj_shape.dimension(1) : -1, 
-      cmd_shape.rank(), // %u
-      cmd_shape.rank() > 0 ? cmd_shape.dimension(0) : -1, 
-      cmd_shape.rank() > 1 ? cmd_shape.dimension(1) : -1); 
+      this->get_logger(), "Unexpected trajectory tensor dimensions. "
+      "Got [Rank %u, Dims(%d, %d, %d)] vs Expected [Rank 3, Dims(1, 30, 3)].",
+      traj_shape.rank(),
+      traj_shape.rank() > 0 ? traj_shape.dimension(0) : -1,
+      traj_shape.rank() > 1 ? traj_shape.dimension(1) : -1,
+      traj_shape.rank() > 2 ? traj_shape.dimension(2) : -1);
     return;
   }
 
-  const size_t future_len = traj_shape.dimension(0); // 30
+  // コマンド (Commands) が [1, 30, 2] であることを期待
+  if (cmd_shape.rank() != 3 || cmd_shape.dimension(0) != 1 ||
+      cmd_shape.dimension(1) != 30 || cmd_shape.dimension(2) != 2)
+  {
+    RCLCPP_ERROR(
+      this->get_logger(), "Unexpected command tensor dimensions. "
+      "Got [Rank %u, Dims(%d, %d, %d)] vs Expected [Rank 3, Dims(1, 30, 2)].",
+      cmd_shape.rank(),
+      cmd_shape.rank() > 0 ? cmd_shape.dimension(0) : -1,
+      cmd_shape.rank() > 1 ? cmd_shape.dimension(1) : -1,
+      cmd_shape.rank() > 2 ? cmd_shape.dimension(2) : -1);
+    return;
+  }
+
+  const size_t future_len = traj_shape.dimension(1); // 30
+  const size_t cmd_timesteps = cmd_shape.dimension(1); // 30
+
 
   std::vector<float> trajectory_data(future_len * 3);
-  std::vector<float> commands_data(future_len * 2);
+  std::vector<float> commands_data(cmd_timesteps * 2); // 30 * 2 で正しい
 
   cudaError_t cuda_status;
   cuda_status = cudaMemcpy(
@@ -117,6 +130,7 @@ void TrajcontrolnetDecoderNode::InputCallback(const nvidia::isaac_ros::nitros::N
   auto cmd_msg = std::make_unique<ackermann_msgs::msg::AckermannDriveStamped>();
   cmd_msg->header = header;
 
+  // 30フレーム分のコマンドのうち、先頭(0番目)のデータを使用する
   const float steer = commands_data[0 * 2 + 0];
   const float speed = commands_data[0 * 2 + 1];
 
