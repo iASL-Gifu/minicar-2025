@@ -38,6 +38,7 @@ TrajcontrolnetDecoderNode::TrajcontrolnetDecoderNode(const rclcpp::NodeOptions o
   trajectory_tensor_name_{declare_parameter<std::string>("trajectory_tensor_name", "output_trajectory")},
   commands_tensor_name_{declare_parameter<std::string>("commands_tensor_name", "output_commands")},
   path_frame_id_{declare_parameter<std::string>("path_frame_id", "odom")}
+  command_index_{static_cast<size_t>(declare_parameter<int>("command_index", 0))}
 {}
 
 TrajcontrolnetDecoderNode::~TrajcontrolnetDecoderNode() = default;
@@ -47,18 +48,21 @@ void TrajcontrolnetDecoderNode::InputCallback(const nvidia::isaac_ros::nitros::N
   auto trajectory_tensor = msg.GetNamedTensor(trajectory_tensor_name_);
   auto commands_tensor = msg.GetNamedTensor(commands_tensor_name_);
 
-  // --- 修正箇所 (静的アプローチ) ---
-  // テンソルが取得できることだけを確認（形状チェックは省略）
+
   if (trajectory_tensor.GetBuffer() == nullptr || commands_tensor.GetBuffer() == nullptr) {
     RCLCPP_ERROR(this->get_logger(), "Failed to get one or both tensors by name. Triton node might have failed.");
     return;
   }
 
-  // 形状チェックを削除し、期待されるサイズをハードコードする
   const size_t future_len = 30; // [1, 30, 3] の 30
   const size_t cmd_timesteps = 30; // [1, 30, 2] の 30
-  // --- 修正箇所 (ここまで) ---
 
+  if (command_index_ >= cmd_timesteps) {
+    RCLCPP_ERROR(
+      this->get_logger(), "Parameter 'command_index' (%zu) is out of bounds. Must be less than %zu.",
+      command_index_, cmd_timesteps);
+    return;
+  }
 
   std::vector<float> trajectory_data(future_len * 3); // 30 * 3
   std::vector<float> commands_data(cmd_timesteps * 2); // 30 * 2
@@ -102,9 +106,9 @@ void TrajcontrolnetDecoderNode::InputCallback(const nvidia::isaac_ros::nitros::N
   auto cmd_msg = std::make_unique<ackermann_msgs::msg::AckermannDriveStamped>();
   cmd_msg->header = header;
 
-  // 30フレーム分のコマンドのうち、先頭(0番目)のデータを使用する
-  const float steer = commands_data[0 * 2 + 0];
-  const float speed = commands_data[0 * 2 + 1];
+  // 30フレーム分のコマンドのうち、指定されたインデックスのデータを使用する
+  const float steer = commands_data[command_index_ * 2 + 0];
+  const float speed = commands_data[command_index_ * 2 + 1];
 
   cmd_msg->drive.steering_angle = steer;
   cmd_msg->drive.speed = speed;

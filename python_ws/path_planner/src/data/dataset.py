@@ -1,86 +1,66 @@
-from typing import Callable, Dict
+from typing import Callable, Dict, List, Optional
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, ConcatDataset
 import cv2
 from pathlib import Path
 import numpy as np
 
-class TrajectoryDataset(Dataset):
+
+class SequenceDataset(Dataset):
     """
-    複数の記録ディレクトリから、サンプルごとの
-    (画像, 過去オドメトリ, 未来軌跡, 未来コマンド) を読み込むDatasetクラス。
+    単一の記録ディレクトリを扱うDataset。
     """
-    def __init__(self, root_dir: Path, transform: Callable | None = None):
-        """
-        Args:
-            root_dir (Path): 複数のデータセットディレクトリが格納されているルートディレクトリ。
-            transform (Callable, optional): 【画像にのみ】適用する前処理。
-        """
-        super().__init__()
-        
-        self.root_dir = root_dir
-        self.transform = transform # 画像にのみ適用される
-        
-        self.sample_paths = [] 
+    def __init__(self, recording_path: Path, transform: Callable | None = None):
+        self.recording_path = recording_path
+        self.transform = transform
+        self.sample_paths = []
 
-        recording_dirs = sorted([p for p in self.root_dir.iterdir() if p.is_dir()])
-        print(f"[INFO] Found {len(recording_dirs)} potential recording directories in {self.root_dir}")
+        image_dir = recording_path / "images"
+        if not image_dir.is_dir():
+            raise FileNotFoundError(f"[WARN] {recording_path} に 'images' ディレクトリが存在しません。")
 
-        for recording_path in recording_dirs:
-            image_dir = recording_path / "images"
-            if not image_dir.is_dir():
-                print(f"[WARN] Skipping {recording_path.name}: 'images' directory not found.")
-                continue
+        image_files = sorted(list(image_dir.glob("*.png")))
+        num_found = 0
+        for img_path in image_files:
+            stem = img_path.stem
+            past_odom_file = recording_path / f"past_odoms_{stem}.npy"
+            future_traj_file = recording_path / f"future_trajectory_{stem}.npy"
+            future_cmd_file = recording_path / f"future_cmds_{stem}.npy"
 
-            image_files = sorted(list(image_dir.glob("*.png")))
-            num_found = 0
-            for img_path in image_files:
-                sample_stem = img_path.stem
-                
-                past_odom_file = recording_path / f"past_odoms_{sample_stem}.npy"
-                future_traj_file = recording_path / f"future_trajectory_{sample_stem}.npy"
-                future_cmd_file = recording_path / f"future_cmds_{sample_stem}.npy"
+            if all([past_odom_file.exists(), future_traj_file.exists(), future_cmd_file.exists()]):
+                self.sample_paths.append({
+                    'image': img_path,
+                    'past_odoms': past_odom_file,
+                    'future_path': future_traj_file,
+                    'future_cmd': future_cmd_file
+                })
+                num_found += 1
 
-                if all([past_odom_file.exists(), future_traj_file.exists(), future_cmd_file.exists()]):
-                    self.sample_paths.append({
-                        'image': img_path,
-                        'past_odoms': past_odom_file,
-                        'future_path': future_traj_file,
-                        'future_cmd': future_cmd_file
-                    })
-                    num_found += 1
-                
-            if num_found > 0:
-                print(f"[INFO] Loaded {recording_path.name} with {num_found} valid samples.")
-            else:
-                print(f"[WARN] Skipping {recording_path.name}: No valid samples found.")
+        if num_found == 0:
+            raise RuntimeError(f"[WARN] {recording_path.name} には有効なサンプルが存在しません。")
+        else:
+            print(f"[INFO] Loaded {recording_path.name} with {num_found} valid samples.")
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.sample_paths)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        """
-        指定されたグローバルインデックスのデータを1サンプル取得する。
-        """
         paths = self.sample_paths[idx]
-        
         try:
-            # 1. 画像を読み込む (RGB)
             image_np = cv2.imread(str(paths['image']))
             if image_np is None:
                 raise IOError(f"Failed to read image: {paths['image']}")
             image_np = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
-            
-            # 2. 他のNumpyデータを読み込む
+
             past_odoms_np = np.load(paths['past_odoms'])
             future_path_np = np.load(paths['future_path'])
             future_cmd_np = np.load(paths['future_cmd'])
-            
+
         except Exception as e:
-            print(f"[ERROR] Failed to load data for index {idx} (path: {paths['image']}). Error: {e}")
+            print(f"[ERROR] Failed to load data at {paths['image']}. Error: {e}")
             return self.__getitem__((idx + 1) % len(self))
 
-        sample_dict_np = {
+        sample_np = {
             'image': image_np,
             'past_odoms': past_odoms_np,
             'future_path': future_path_np,
@@ -88,14 +68,69 @@ class TrajectoryDataset(Dataset):
         }
 
         if self.transform:
-            sample_tensor_dict = self.transform(sample_dict_np)
+            return self.transform(sample_np)
         else:
-            # Transformがない場合もTensor変換を自前で行う
-            sample_tensor_dict = {
+            return {
                 'image': torch.from_numpy(image_np.transpose(2, 0, 1)).float() / 255.0,
                 'past_odoms': torch.tensor(past_odoms_np, dtype=torch.float32),
                 'future_path': torch.tensor(future_path_np, dtype=torch.float32),
                 'future_cmd': torch.tensor(future_cmd_np, dtype=torch.float32)
             }
 
-        return sample_tensor_dict
+
+class MultiSequenceDataset(Dataset):
+    """
+    base_dir 以下を再帰的に探索し、複数 sequence を結合した Dataset。
+    特定のシーケンスのみを選択して利用する機能を追加。
+    """
+    def __init__(
+        self,
+        base_dir: Path,
+        transform: Optional[Callable] = None,
+        sequence_indices: Optional[List[int]] = None  
+    ):
+        self.base_dir = Path(base_dir)
+        self.transform = transform
+
+        # 再帰探索でシーケンスディレクトリを収集
+        self.recording_dirs = self._find_recording_dirs(self.base_dir)
+        if len(self.recording_dirs) == 0:
+            raise RuntimeError(f"[ERROR] No valid recording directories found under {self.base_dir}")
+
+        # シーケンス名一覧
+        self.sequence_names = [d.name for d in self.recording_dirs]
+        print(f"[INFO] Found {len(self.recording_dirs)} sequence directories under {self.base_dir}")
+        print("    Sequences:", ", ".join(self.sequence_names))
+
+        # --- 部分利用モード ---
+        if sequence_indices is not None:
+            # index指定された部分だけ抽出
+            self.recording_dirs = [self.recording_dirs[i] for i in sequence_indices]
+            print(f"[INFO] Using subset of sequences: {[self.sequence_names[i] for i in sequence_indices]}")
+
+        # --- 各シーケンスをDataset化 ---
+        datasets = []
+        for d in self.recording_dirs:
+            try:
+                ds = SequenceDataset(d, transform=self.transform)
+                datasets.append(ds)
+            except Exception as e:
+                print(f"[WARN] Skipping {d}: {e}")
+
+        if not datasets:
+            raise RuntimeError(f"[ERROR] No valid datasets could be loaded under {self.base_dir}")
+
+        self.concat_dataset = ConcatDataset(datasets)
+
+    def _find_recording_dirs(self, base_dir: Path) -> List[Path]:
+        candidates = []
+        for path in base_dir.rglob("*"):
+            if (path / "images").is_dir():
+                candidates.append(path)
+        return sorted(candidates)
+
+    def __len__(self):
+        return len(self.concat_dataset)
+
+    def __getitem__(self, idx: int):
+        return self.concat_dataset[idx]

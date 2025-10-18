@@ -23,6 +23,7 @@ model_path: './ckpts/best_model.pth'
 analysis:
   batch_size: 64
   k_neighbors: 15
+  select_sequences: [1]
 
 # --- 分析結果の出力先ディレクトリ ---
 hydra:

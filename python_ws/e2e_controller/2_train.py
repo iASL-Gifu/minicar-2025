@@ -7,12 +7,14 @@ from omegaconf import DictConfig, OmegaConf
 import os
 from torch.utils.tensorboard import SummaryWriter
 
-from src.data.dataset import RecordingSequenceDataset
+from src.data.dataset import MultiSequenceDataset  
 from src.data.transform import TrainTransform, TestTransform
 from src.model.pilotnet import PilotNet
 
 
-# --- 学習ループ ---
+# =========================================================
+# 学習1エポック
+# =========================================================
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
@@ -38,7 +40,9 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
     return total_loss / len(dataloader)
 
 
-# --- 検証ループ ---
+# =========================================================
+# 検証1エポック
+# =========================================================
 def validate_one_epoch(model, dataloader, criterion, device):
     model.eval()
     total_loss = 0.0
@@ -62,7 +66,9 @@ def validate_one_epoch(model, dataloader, criterion, device):
     return total_loss / len(dataloader)
 
 
-# --- メイン ---
+# =========================================================
+# メイン
+# =========================================================
 @hydra.main(config_path="config", config_name="train", version_base="1.2")
 def main(cfg: DictConfig) -> None:
     print("--- Configuration ---")
@@ -82,15 +88,17 @@ def main(cfg: DictConfig) -> None:
     train_path = os.path.join(base_path, "train")
     test_path = os.path.join(base_path, "test")
 
-    # --- Dataset: train ---
-    train_dataset = RecordingSequenceDataset(
-        root_dir=train_path,
-        sequence_length=cfg.dataset.sequence_length
-    )
-    train_dataset.transform = TrainTransform(
-        height=cfg.dataset.image_height,
-        width=cfg.dataset.image_width,
-        mode=cfg.dataset.transform_mode
+    # =====================================================
+    # Dataset: train（再帰探索対応）
+    # =====================================================
+    train_dataset = MultiSequenceDataset(  # ← 再帰探索に変更
+        base_dir=train_path,
+        seq_len=cfg.dataset.sequence_length,
+        transform=TrainTransform(
+            height=cfg.dataset.image_height,
+            width=cfg.dataset.image_width,
+            mode=cfg.dataset.transform_mode
+        )
     )
 
     train_loader = DataLoader(
@@ -100,18 +108,21 @@ def main(cfg: DictConfig) -> None:
         num_workers=cfg.training.num_workers
     )
 
-    # --- Dataset: test（存在する場合のみ） ---
+    # =====================================================
+    # Dataset: validation（存在する場合のみ）
+    # =====================================================
     val_loader = None
     if os.path.exists(test_path):
-        val_dataset = RecordingSequenceDataset(
-            root_dir=test_path,
-            sequence_length=cfg.dataset.sequence_length
+        val_dataset = MultiSequenceDataset(
+            base_dir=test_path,
+            seq_len=cfg.dataset.sequence_length,
+            transform=TestTransform(
+                height=cfg.dataset.image_height,
+                width=cfg.dataset.image_width,
+                mode=cfg.dataset.transform_mode
+            )
         )
-        val_dataset.transform = TestTransform(
-            height=cfg.dataset.image_height,
-            width=cfg.dataset.image_width,
-            mode=cfg.dataset.transform_mode
-        )
+
         val_loader = DataLoader(
             val_dataset,
             batch_size=cfg.training.batch_size,
@@ -123,36 +134,38 @@ def main(cfg: DictConfig) -> None:
         print(f"⚠️ Validation dataset not found: {test_path}")
         print("→ Skipping validation phase (train loss will be used).")
 
-    # --- モデル定義 ---
+    # =====================================================
+    # モデル・損失関数・オプティマイザ
+    # =====================================================
     model = PilotNet(num_outputs=cfg.model.num_outputs).to(device)
     criterion = nn.SmoothL1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.training.learning_rate)
 
-    best_metric = float('inf')  # train_loss か val_loss を入れる
+    best_metric = float('inf')
 
-    # --- 学習ループ ---
+    # =====================================================
+    # 学習ループ
+    # =====================================================
     for epoch in range(cfg.training.epochs):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
         writer.add_scalar('Loss/train', train_loss, epoch)
         print(f"Epoch {epoch+1}/{cfg.training.epochs} | Train Loss: {train_loss:.4f}")
 
-        # --- 検証あり ---
         if val_loader is not None:
             val_loss = validate_one_epoch(model, val_loader, criterion, device)
             writer.add_scalar('Loss/validation', val_loss, epoch)
             print(f"→ Validation Loss: {val_loss:.4f}")
-
             current_metric = val_loss
         else:
-            current_metric = train_loss  # 検証が無いときはtrain lossで評価
+            current_metric = train_loss
 
-        # --- Best model 判定 ---
+        # === Best model 保存 ===
         if current_metric < best_metric:
             best_metric = current_metric
             torch.save(model.state_dict(), os.path.join(ckpt_dir, 'best_model.pth'))
             print(f"✨ Improved best model (metric={best_metric:.4f}) saved!")
 
-        # --- Last model ---
+        # === Last model 保存 ===
         torch.save(model.state_dict(), os.path.join(ckpt_dir, 'last_model.pth'))
 
     print("✅ Finished training.")

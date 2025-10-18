@@ -10,7 +10,7 @@ from tqdm import tqdm
 import time  
 
 # --- TrajControlFormer をインポート ---
-from src.data.dataset import TrajectoryDataset   
+from src.data.dataset import MultiSequenceDataset   
 from src.data.transform import TestTransform
 from src.model.trajcontrolnet import TrajControlFormer # TrajFormer から変更
 
@@ -182,7 +182,9 @@ def main(cfg: DictConfig) -> None:
         height=cfg.dataset.image_height, 
         width=cfg.dataset.image_width
     )
-    dataset = TrajectoryDataset(root_dir=dataset_dir, transform=transform)
+    select_sequences = getattr(cfg.analysis, "select_sequences", None)
+
+    dataset = MultiSequenceDataset(base_dir=dataset_dir, transform=transform, select_sequences=select_sequences)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=cfg.training.num_workers)
 
     # --- モデル読み込み (TrajControlFormer) ---

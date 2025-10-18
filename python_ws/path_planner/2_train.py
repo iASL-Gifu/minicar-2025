@@ -8,7 +8,7 @@ from pathlib import Path
 import os
 from torch.utils.tensorboard import SummaryWriter
 
-from src.data.dataset import TrajectoryDataset   
+from src.data.dataset import MultiSequenceDataset   
 from src.data.transform import TrainTransform, TestTransform
 from src.model.trajcontrolnet import TrajControlFormer 
 
@@ -64,7 +64,6 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
                    (cfg.training.loss_weights.smooth * loss_smooth)
         
         elif mode == 'path_follow':
-            # ★重要: 入力は予測軌道ではなく、正解軌道
             predicted_cmd = model.control_net(future_path) 
             loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
             loss_traj = torch.tensor(0.0, device=device) # ログ用
@@ -91,7 +90,7 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
 
 # --- 検証ループ (mode引数を追加) ---
 def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device, cfg, mode):
-    model.eval() # eval() はモデル全体でOK
+    model.eval() 
     total_loss, total_traj_loss, total_cmd_loss, total_smooth_loss = 0.0, 0.0, 0.0, 0.0
     
     with torch.no_grad():
@@ -150,7 +149,7 @@ def main(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
     print("---------------------")
 
-    # --- 【新規】モードの取得と検証 ---
+    # --- モードの取得と検証 ---
     mode = cfg.training.mode
     if mode not in ['all', 'path_generation', 'path_follow']:
         raise ValueError(f"Invalid training.mode: {mode}. Must be one of 'all', 'path_generation', 'path_follow'.")
@@ -170,8 +169,8 @@ def main(cfg: DictConfig) -> None:
     test_path = os.path.join(base_path, "test")
 
     # --- Dataset ---
-    train_dataset = TrajectoryDataset(
-        root_dir=Path(train_path),
+    train_dataset = MultiSequenceDataset(
+        base_dir=Path(train_path),
         transform=TrainTransform(
             height=cfg.dataset.image_height,
             width=cfg.dataset.image_width,
@@ -184,8 +183,8 @@ def main(cfg: DictConfig) -> None:
 
     val_loader = None
     if os.path.exists(test_path):
-        val_dataset = TrajectoryDataset(
-            root_dir=Path(test_path),
+        val_dataset = MultiSequenceDataset(
+            base_dir=Path(test_path),
             transform=TestTransform(
                 height=cfg.dataset.image_height,
                 width=cfg.dataset.image_width,
@@ -285,7 +284,6 @@ def main(cfg: DictConfig) -> None:
             torch.save(state_dict, os.path.join(ckpt_dir, save_name))
             print(f"✨ Improved best model ({save_name} metric={best_metric:.4f}) saved!")
 
-        # last_modelも同様に
         if mode == 'all':
             torch.save(model.state_dict(), os.path.join(ckpt_dir, 'last_model.pth'))
         elif mode == 'path_generation':

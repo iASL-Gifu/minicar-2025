@@ -13,7 +13,7 @@ from pathlib import Path
 import time
 import os
 
-from src.data.dataset import RecordingSequenceDataset
+from src.data.dataset import MultiSequenceDataset
 from src.data.transform import TestTransform
 from src.model.pilotnet import PilotNet
 
@@ -40,7 +40,8 @@ def main(cfg: DictConfig) -> None:
 
     # --- 2. データセット全体を解析対象に ---
     data_path = hydra.utils.to_absolute_path(cfg.data_path)
-    dataset = RecordingSequenceDataset(root_dir=data_path, sequence_length=cfg.dataset.sequence_length)
+    select_sequences = getattr(cfg.analysis, "select_sequences", None)
+    dataset = MultiSequenceDataset(base_dir=data_path, seq_len=cfg.dataset.sequence_length, select_sequences=select_sequences)
     dataset.transform = TestTransform(height=cfg.dataset.image_height, width=cfg.dataset.image_width)
 
     loader = DataLoader(dataset, batch_size=cfg.analysis.batch_size, shuffle=False, num_workers=0)

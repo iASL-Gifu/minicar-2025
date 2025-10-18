@@ -21,3 +21,4 @@
     trajectory_tensor_name: output_trajectory
     commands_tensor_name: output_commands
     path_frame_id: base_link
+    command_index: 0

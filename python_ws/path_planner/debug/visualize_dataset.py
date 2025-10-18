@@ -234,14 +234,14 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "-d", "--dataset-dir",
+        "-d", "--datadir",
         type=Path,
         required=True,
         help="Path to the processed dataset directory (e.g., ./dataset/my_bag_name) "
              "containing 'images/', 'past_odoms_*.npy', 'future_trajectory_*.npy', and 'future_cmds_*.npy'."
     )
     parser.add_argument(
-        "-o", "--output-save-dir",
+        "-o", "--output",
         type=Path,
         default=Path("./visualizations"),
         help="Directory to save the visualization images."

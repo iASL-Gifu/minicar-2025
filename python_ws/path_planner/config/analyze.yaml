@@ -30,7 +30,12 @@ model:
   d_model: 192  
   transformer_nhead: 6
   transformer_num_layers: 2
+  control_d_model: 64
+  control_nhead: 4
+  control_num_layers: 2
 
+analysis:
+  select_sequences: [1]  
 # --- Hydra (ここですべての出力先が決まる) ---
 hydra:
   run:

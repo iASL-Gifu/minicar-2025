@@ -4,6 +4,8 @@ import torch.nn as nn
 class ControlFormer(nn.Module):
     """
     Transformerベース制御ネット
+    入力: (B, T, 3) の予測軌跡
+    出力: (B, T, 2) の制御シーケンス
     """
     def __init__(self, traj_dim=3, d_model=64, nhead=4, num_layers=2):
         super().__init__()
@@ -16,7 +18,6 @@ class ControlFormer(nn.Module):
         )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-        self.pool = nn.AdaptiveAvgPool1d(1)  # 時系列方向を統合
         self.fc = nn.Sequential(
             nn.Linear(d_model, d_model),
             nn.ReLU(),
@@ -24,6 +25,13 @@ class ControlFormer(nn.Module):
         )
 
     def forward(self, predicted_traj):
-        x = self.input_proj(predicted_traj)
-        x = self.encoder(x)  # (B, T, d_model)
-        return self.fc(x)
+        """
+        Args:
+            predicted_traj (torch.Tensor): (B, T, 3)
+        Returns:
+            torch.Tensor: (B, T, 2)
+        """
+        x = self.input_proj(predicted_traj) # (B, T, d_model)
+        x = self.encoder(x)                 # (B, T, d_model)
+        
+        return self.fc(x)                   # (B, T, 2)

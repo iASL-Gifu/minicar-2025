@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
-from torchvision.models import mobilenet_v3_small
+
+from torchvision.models import shufflenet_v2_x0_5, ShuffleNet_V2_X0_5_Weights
 
 class TrajFormer(nn.Module):
     """
     軽量Trajectory予測モデル:
-    - 画像: MobileNetV3-Small で特徴抽出
+    - 画像: ShuffleNetV2 x0.5 で特徴抽出 (←変更)
     - 過去オドメトリ: GRU で埋め込み
     - 未来軌跡予測: 軽量TransformerDecoder + 線形層
     """
@@ -24,18 +25,21 @@ class TrajFormer(nn.Module):
         super().__init__()
         self.future_len = future_len
 
-        # --- 1. Image Encoder ---
-        self.image_encoder = mobilenet_v3_small(weights='MobileNet_V3_Small_Weights.DEFAULT')
-        # stride調整で低解像度入力対応
-        self.image_encoder.features[0][0].stride = (1, 1)
-        # classifierを特徴量抽出用に置き換え
-        num_features = self.image_encoder.classifier[0].in_features
-        self.image_encoder.classifier = nn.Sequential(
+        # --- 1. Image Encoder (ShuffleNetV2 x0.5 に変更) ---
+        self.image_encoder = shufflenet_v2_x0_5(weights=ShuffleNet_V2_X0_5_Weights.DEFAULT)
+        
+        # stride調整 (W:160, H:120 の低解像度入力対応)
+        self.image_encoder.conv1[0].stride = (1, 1) 
+        
+        # classifier(fc)を特徴量抽出用に置き換え
+        num_features = self.image_encoder.fc.in_features
+        self.image_encoder.fc = nn.Sequential(
             nn.Linear(num_features, image_embedding_dim),
             nn.ReLU()
         )
 
-        # --- 2. Motion Encoder (過去オドメトリ) ---
+
+        # --- 2. Motion Encoder ---
         self.motion_encoder = nn.GRU(
             input_size=odom_features,
             hidden_size=motion_embedding_dim,
@@ -86,7 +90,7 @@ class TrajFormer(nn.Module):
         predicted_trajectory = self.output_layer(traj_features)  # (B, future_len, 3)
         return predicted_trajectory
 
-# --- 実行スクリプト ---
+# --- 実行スクリプト (変更なし、ShuffleNetV2で実行されます) ---
 if __name__ == "__main__":
     # モデルのインスタンス化 (デフォルト設定)
     model = TrajFormer()
@@ -94,7 +98,7 @@ if __name__ == "__main__":
     # 学習可能なパラメータ数を計算
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     
-    print(f"モデル: TrajFormer")
+    print(f"モデル: TrajFormer (Encoder: ShuffleNetV2 x0.5)")
     print(f"総パラメータ数: {total_params:,}")
     print(f"総パラメータ数 (M): {total_params / 1_000_000:.2f} M")
 
@@ -102,7 +106,7 @@ if __name__ == "__main__":
     try:
         # --- ダミーデータの準備 ---
         B = 4  # バッチサイズ
-        H, W = 128, 128 # 画像サイズ
+        H, W = 120, 160 # 画像サイズ (指定されたサイズに変更)
         
         # モデルのinit設定値
         history_len = 10
