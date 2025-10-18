@@ -20,4 +20,4 @@
   ros__parameters:
     trajectory_tensor_name: output_trajectory
     commands_tensor_name: output_commands
-    path_frame_id: odom
+    path_frame_id: base_link
