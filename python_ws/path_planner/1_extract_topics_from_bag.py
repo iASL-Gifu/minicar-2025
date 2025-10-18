@@ -220,7 +220,7 @@ def main():
     parser.add_argument("--history_len", type=int, default=10, help="Number of past odom steps")
     parser.add_argument("--history_step", type=int, default=1, help="Step size for past odom")
     parser.add_argument("--future_len", type=int, default=30, help="Number of future cmd/trajectory steps")
-    parser.add_argument("--future_step", type=int, default=1, help="Step size for future cmd/trajectory")
+    parser.add_argument("--future_step", type=int, default=3, help="Step size for future cmd/trajectory")
     
     # 並列ワーカー数を指定するオプションを追加
     parser.add_argument("--workers", type=int, default=None, help="Number of parallel workers. (Default: CPU count - 1, max 8)")
