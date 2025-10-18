@@ -21,8 +21,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-#include "isaac_ros_nitros/nitros_publisher.hpp"
-#include "isaac_ros_nitros/types/nitros_tensor_list.hpp"
+#include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 
 namespace isaac_ros_e2e_traj_control 
 {
