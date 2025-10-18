@@ -120,7 +120,7 @@ void OdomEncoderNode::InputCallback(const nav_msgs::msg::Odometry::SharedPtr msg
     tensor_name_,
     (
       nvidia::isaac_ros::nitros::NitrosTensorBuilder()
-      .WithShape({static_cast<int>(history_size_), 8}) // Shape: [N, 8]
+      .WithShape({1, static_cast<int>(history_size_), 8})
       .WithDataType(nvidia::isaac_ros::nitros::NitrosDataType::kFloat32) // Type: float
       .WithData(buffer)
       .Build()
