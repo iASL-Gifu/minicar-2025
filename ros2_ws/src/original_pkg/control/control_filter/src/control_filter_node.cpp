@@ -165,10 +165,10 @@ private:
 
   void apply_normal_scale_filter(ackermann_msgs::msg::AckermannDrive &msg)
   {
-    msg.speed *= normal_speed_scale_ratio_;
+msg.speed *= normal_speed_scale_ratio_;
     msg.steering_angle *= normal_steer_scale_ratio_;
     
-    msg.speed = std::max(0.0f, std::min(msg.speed, 1.0f));
+    msg.speed = std::max(-1.0f, std::min(msg.speed, 1.0f));
     msg.steering_angle = std::max(-1.0f, std::min(msg.steering_angle, 1.0f));
   }
 
@@ -181,7 +181,7 @@ private:
     }
     msg.steering_angle *= advance_steer_scale_ratio_;
 
-    msg.speed = std::max(0.0f, std::min(msg.speed, 1.0f));
+    msg.speed = std::max(-1.0f, std::min(msg.speed, 1.0f));
     msg.steering_angle = std::max(-1.0f, std::min(msg.steering_angle, 1.0f));
   }
 
