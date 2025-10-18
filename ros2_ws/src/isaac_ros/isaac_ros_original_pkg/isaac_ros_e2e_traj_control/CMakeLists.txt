@@ -16,7 +16,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.22.1)
-# プロジェクト名を変更
 project(isaac_ros_e2e_traj_control LANGUAGES C CXX)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -26,21 +25,24 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
-# Odom Encoder node (string_encoder_node から変更)
+# Odom Encoder node 
 ament_auto_add_library(odom_encoder_node SHARED src/odom_encoder_node.cpp)
-# 名前空間とクラス名を変更
 rclcpp_components_register_nodes(odom_encoder_node "isaac_ros_e2e_traj_control::OdomEncoderNode")
-# 名前空間とクラス名、ターゲット名を変更
 set(node_plugins "${node_plugins}isaac_ros_e2e_traj_control::OdomEncoderNode;$<TARGET_FILE:odom_encoder_node>\n")
 set_target_properties(odom_encoder_node PROPERTIES
   BUILD_WITH_INSTALL_RPATH TRUE
   BUILD_RPATH_USE_ORIGIN TRUE
   INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-# (String Decoder node のセクションは削除)
 
-# (BUILD_TESTING ブロックは削除)
-
+# TensorList Joiner node 
+ament_auto_add_library(tensor_list_joiner_node SHARED src/tensor_list_joiner_node.cpp)
+rclcpp_components_register_nodes(tensor_list_joiner_node "isaac_ros_e2e_traj_control::TensorListJoinerNode")
+set(node_plugins "${node_plugins}isaac_ros_e2e_traj_control::TensorListJoinerNode;$<TARGET_FILE:tensor_list_joiner_node>\n")
+set_target_properties(tensor_list_joiner_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Embed versioning information into installed files
 ament_index_get_resource(ISAAC_ROS_COMMON_CMAKE_PATH isaac_ros_common_cmake_path isaac_ros_common)
