@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: 2024 NVIDIA CORPORATION & AFFILIATES
+// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -9,7 +9,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY, either express or implied.
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
@@ -18,12 +18,12 @@
 #include "isaac_ros_e2e_traj_control/odom_to_tensor_node.hpp"
 
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_builder.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_generic_f32.hpp"
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 
 #include <vector>
 #include <string>
-#include <cmath>     // std::sqrt
-#include <algorithm> // std::copy
+#include <cmath>
+#include <algorithm>
 
 namespace nvidia
 {
@@ -34,7 +34,7 @@ namespace e2e_traj_control
 
 namespace
 {
-// CUDAエラーチェック関数 (変更なし)
+// CUDAエラーチェック関数
 inline void CheckCudaErrors(cudaError_t code, const char * file, const int line)
 {
   if (code != cudaSuccess) {
@@ -52,7 +52,7 @@ OdomToTensorNode::OdomToTensorNode(const rclcpp::NodeOptions & options)
   input_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")},
   output_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")},
   tensor_name_{declare_parameter<std::string>("tensor_name", "odom_history_tensor")},
-  history_size_{declare_parameter<int>("history_size", 10)} // N=10をデフォルトに設定
+  history_size_{declare_parameter<int>("history_size", 10)}
 {
   RCLCPP_INFO(
     get_logger(), "Initializing OdomToTensorNode (History Size N=%d, Vector Size=%d)",
@@ -63,14 +63,12 @@ OdomToTensorNode::OdomToTensorNode(const rclcpp::NodeOptions & options)
     throw std::invalid_argument("history_size must be > 0.");
   }
 
-  // --- バッファの初期化 ---
-  // 履歴バッファ(deque)をゼロパディング
+  // 履歴バッファをゼロパディング
   for (int i = 0; i < history_size_; ++i) {
     odom_buffer_.emplace_back(std::vector<float>(kOdomVectorSize, 0.0f));
   }
-  // CPU-GPU転送用の一時バッファ(vector)のサイズを確保
+  // CPU-GPU転送用の一時バッファのサイズを確保
   flat_cpu_buffer_.resize(history_size_ * kOdomVectorSize);
-  // -------------------------
 
   // サブスクライバ (標準ROS)
   sub_odom_ = create_subscription<nav_msgs::msg::Odometry>(
@@ -82,10 +80,10 @@ OdomToTensorNode::OdomToTensorNode(const rclcpp::NodeOptions & options)
     nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
       nvidia::isaac_ros::nitros::NitrosTensorList>>(
     this, "tensor",
-    nvidia::isaac_ros::nitros::nitros_tensor_list_generic_f32_t::supported_type_name,
+    // 汎用的な NitrosTensorList の型名 ("nitros_tensor_list") を使用
+    nvidia::isaac_ros::nitros::NitrosTensorList::supported_type_name,
     nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, output_qos_);
 
-  // CUDAストリームの作成
   CheckCudaErrors(cudaStreamCreate(&stream_), __FILE__, __LINE__);
 }
 
@@ -103,36 +101,31 @@ void OdomToTensorNode::OdomCallback(const nav_msgs::msg::Odometry::ConstSharedPt
   const auto & pose = msg->pose.pose;
   const auto & twist = msg->twist.twist;
 
-  // pos(3)
-  current_odom_vec[0] = static_cast<float>(pose.position.x);
+  current_odom_vec[0] = static_T<float>(pose.position.x);
   current_odom_vec[1] = static_cast<float>(pose.position.y);
   current_odom_vec[2] = static_cast<float>(pose.position.z);
-  // ori(4)
   current_odom_vec[3] = static_cast<float>(pose.orientation.x);
   current_odom_vec[4] = static_cast<float>(pose.orientation.y);
   current_odom_vec[5] = static_cast<float>(pose.orientation.z);
   current_odom_vec[6] = static_cast<float>(pose.orientation.w);
-  // speed(1)
   const float vx = static_cast<float>(twist.linear.x);
   const float vy = static_cast<float>(twist.linear.y);
   current_odom_vec[7] = std::sqrt(vx * vx + vy * vy);
 
   // 2. 履歴バッファ (deque) を更新
-  odom_buffer_.pop_front();         // 一番古いデータを削除
-  odom_buffer_.push_back(current_odom_vec); // 最新のデータを追加
+  odom_buffer_.pop_front();
+  odom_buffer_.push_back(current_odom_vec);
 
   // 3. GPU転送用にデータを平坦化 (Flatten)
-  //    (deque<vector> から 1つの contiguousな vector へコピー)
   size_t idx = 0;
   for (const auto & vec : odom_buffer_) {
-    // vec (8要素) を flat_cpu_buffer_ の適切な位置にコピー
     std::copy(vec.begin(), vec.end(), flat_cpu_buffer_.begin() + idx);
     idx += kOdomVectorSize;
   }
-  
+
   // 4. GPU側に必要なメモリを確保
   float * gpu_buffer{nullptr};
-  const size_t buffer_size = flat_cpu_buffer_.size() * sizeof(float); // N * 8 * sizeof(float)
+  const size_t buffer_size = flat_cpu_buffer_.size() * sizeof(float);
   CheckCudaErrors(
     cudaMallocAsync(&gpu_buffer, buffer_size, stream_), __FILE__, __LINE__);
 
@@ -145,12 +138,12 @@ void OdomToTensorNode::OdomCallback(const nav_msgs::msg::Odometry::ConstSharedPt
   // 6. NITROSテンソルリストを構築 (形状: [N, 8])
   nvidia::isaac_ros::nitros::NitrosTensorList tensor_list =
     nvidia::isaac_ros::nitros::NitrosTensorListBuilder()
-    .WithHeader(msg->header) // odomのヘッダー情報を引き継ぐ
+    .WithHeader(msg->header)
     .AddTensor(
     tensor_name_, (nvidia::isaac_ros::nitros::NitrosTensorBuilder()
     .WithShape({static_cast<int32_t>(history_size_), kOdomVectorSize}) // 形状 [N, 8]
     .WithDataType(nvidia::isaac_ros::nitros::NitrosDataType::kFloat32)
-    .WithData(gpu_buffer) // GPUポインタを渡す
+    .WithData(gpu_buffer)
     .Build()))
     .Build();
 
@@ -166,5 +159,4 @@ void OdomToTensorNode::OdomCallback(const nav_msgs::msg::Odometry::ConstSharedPt
 }  // namespace nvidia
 
 #include "rclcpp_components/register_node_macro.hpp"
-// 登録するクラスの名前空間をパッケージ名に合わせる 
 RCLCPP_COMPONENTS_REGISTER_NODE(nvidia::isaac_ros::e2e_traj_control::OdomToTensorNode)

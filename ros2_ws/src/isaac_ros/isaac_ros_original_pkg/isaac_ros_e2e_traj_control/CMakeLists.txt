@@ -16,81 +16,56 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.22.1)
-project(isaac_ros_e2e_traj_control)
+project(isaac_ros_e2e_traj_control LANGUAGES C CXX CUDA)
 
-# --- 1. 必要なパッケージを検索 ---
-find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(rclcpp_components REQUIRED)
-# cv_bridge と sensor_msgs は odom_to_tensor_node では不要
-find_package(nav_msgs REQUIRED)
-find_package(isaac_ros_nitros REQUIRED)
-find_package(isaac_ros_nitros_image_type REQUIRED)
-find_package(isaac_ros_nitros_tensor_list_type REQUIRED)
-find_package(isaac_ros_common REQUIRED)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-# CUDA ランタイムライブラリを見つける (必須)
-find_package(CUDA REQUIRED)
+# ament_cmake_auto を使用
+find_package(ament_cmake_auto REQUIRED)
 
-# --- 2. ノードのライブラリを作成 ---
-add_library(odom_to_tensor_node SHARED
+# package.xml に基づいて依存関係 (isaac_ros_gxf など) を自動検索
+ament_auto_find_build_dependencies()
+
+# --- Odom to Tensor Node ---
+
+# ノードライブラリを自動追加
+ament_auto_add_library(odom_to_tensor_node SHARED
   src/odom_to_tensor_node.cpp
 )
 
-target_include_directories(odom_to_tensor_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-  # OpenCV の代わりに CUDA のインクルードパスを追加
-  ${CUDA_INCLUDE_DIRS}
-)
-
-# --- 3. 依存関係をリンク ---
-# ターゲット名を変更
-ament_target_dependencies(odom_to_tensor_node PUBLIC
-  "rclcpp"
-  "rclcpp_components"
-  "nav_msgs"
-  "isaac_ros_nitros"
-  "isaac_ros_nitros_image_type"
-  "isaac_ros_nitros_tensor_list_type"
-  "isaac_ros_common"
-)
-
-# OpenCV の代わりに CUDA ランタイムライブラリをリンク
-target_link_libraries(odom_to_tensor_node PUBLIC
-  CUDA::cudart
-)
-
-# --- 4. コンポーネントノードとして登録 ---
+# コンポーネントノードとして登録
 rclcpp_components_register_nodes(odom_to_tensor_node
   "nvidia::isaac_ros::e2e_traj_control::OdomToTensorNode"
-=======
 )
 
-# --- 5. インストール設定 ---
-install(
-  # ターゲット名を変更
-  TARGETS odom_to_tensor_node
+# ターゲットプロパティを設定
+set_target_properties(odom_to_tensor_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+# --- インストール設定 ---
+install(
+  TARGETS odom_to_tensor_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-
 install(
   DIRECTORY include/
   DESTINATION include
 )
-
-# launch と config ディレクトリをインストール
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
 )
 
-# --- 6. バージョン情報 ---
+# --- バージョン情報 ---
 ament_index_get_resource(ISAAC_ROS_COMMON_CMAKE_PATH isaac_ros_common_cmake_path isaac_ros_common)
 include("${ISAAC_ROS_COMMON_CMAKE_PATH}/isaac_ros_common-version-info.cmake")
 generate_version_info(${PROJECT_NAME})
 
+# --- パッケージ化 ---
 ament_package()
