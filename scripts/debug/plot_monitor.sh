@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# 使用方法: ./plot_monitor.sh [csv_directory]
-# 例: ./plot_monitor.sh
-# 例: ./plot_monitor.sh /path/to/csv/files
+# 使用方法: /scripts/debug/plot_monitor.sh [csv_directory]
+# 例: /scripts/debug/plot_monitor.sh
+# 例: /scripts/debug/plot_monitor.sh /path/to/csv/files
 
 # 色付き出力用
 RED='\033[0;31m'
@@ -11,10 +11,13 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Pythonスクリプトの名前
-PYTHON_SCRIPT="plot_monitor.py"
+# スクリプトのディレクトリを取得（/scripts/debug/）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# CSVディレクトリを指定（デフォルトはカレントディレクトリ）
+# Pythonスクリプトのパス（このスクリプトと同じ /scripts/debug/ にある）
+PYTHON_SCRIPT="${SCRIPT_DIR}/plot_monitor.py"
+
+# CSVディレクトリを指定（デフォルトは /debug）
 CSV_DIR="${1:-/debug}"
 
 # ディレクトリが存在するか確認
@@ -25,7 +28,9 @@ fi
 
 # Pythonスクリプトが存在するか確認
 if [ ! -f "${PYTHON_SCRIPT}" ]; then
-    echo -e "${RED}Error: ${PYTHON_SCRIPT} not found in current directory${NC}"
+    echo -e "${RED}Error: ${PYTHON_SCRIPT} not found${NC}"
+    echo -e "${YELLOW}Expected location: ${PYTHON_SCRIPT}${NC}"
+    echo -e "${YELLOW}Please ensure plot_monitor.py is in ${SCRIPT_DIR}${NC}"
     exit 1
 fi
 
@@ -36,7 +41,8 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 echo -e "${GREEN}=== Jetson Monitor グラフ生成ツール ===${NC}"
-echo -e "${GREEN}Directory: ${YELLOW}${CSV_DIR}${NC}\n"
+echo -e "${GREEN}Script Directory: ${YELLOW}${SCRIPT_DIR}${NC}"
+echo -e "${GREEN}CSV Directory: ${YELLOW}${CSV_DIR}${NC}\n"
 
 # CSVファイルを検索
 csv_files=(${CSV_DIR}/*.csv)
