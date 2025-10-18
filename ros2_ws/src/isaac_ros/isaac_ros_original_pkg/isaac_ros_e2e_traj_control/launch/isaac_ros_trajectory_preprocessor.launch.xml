@@ -10,6 +10,9 @@
     <arg name="input_camera_info_topic" default="/realsense2_camera/color/camera_info" />
     <arg name="odom_topic" default="/visual_slam/tracking/odometry" />
 
+    <arg name="output_path_topic" default="/planned_path" />
+    <arg name="output_cmd_topic" default="/ackermann_cmd" />
+
     <arg name="image_tensor_topic" default="/encoder/tensor_pub" />
     <arg name="odom_tensor_topic" default="/odom_encoder/tensor_pub" />
     <arg name="merged_tensor_topic" default="/merged_tensor_to_triton" />
@@ -88,6 +91,22 @@
 
             <remap from="tensor_sub" to="$(var merged_tensor_topic)" />
             <remap from="tensor_pub" to="$(var triton_output_topic)" />
+        </composable_node>
+    </load_composable_node>
+
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="isaac_ros_e2e_traj_control"
+            plugin="isaac_ros_e2e_traj_control::TrajcontrolnetDecoderNode"
+            name="trajcontrolnet_decoder_node">
+            
+            <param name="trajectory_tensor_name" value="output_trajectory" />
+            <param name="commands_tensor_name" value="output_commands" />
+            <param name="path_frame_id" value="odom" />
+
+            <remap from="tensor_input" to="$(var triton_output_topic)" />
+            <remap from="decoder/path" to="$(var output_path_topic)" />
+            <remap from="decoder/control_cmd" to="$(var output_cmd_topic)" />
         </composable_node>
     </load_composable_node>
 
