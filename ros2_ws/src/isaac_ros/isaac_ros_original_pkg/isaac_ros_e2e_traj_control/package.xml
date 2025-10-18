@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!--
-SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,36 +17,30 @@ limitations under the License.
 
 SPDX-License-Identifier: Apache-2.0
 -->
+
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_e2e_traj_control</name>
-  <version>0.0.0</version>
-  <description>Converts nav_msgs::msg::Odometry messages into a batched tensor history for DNN inference.</description>
-  <maintainer email="ky.37f.9850@s.thers.ac.jp">arata-22</maintainer>
+  <version>0.0.1</version>
+  <description>NITROS Encoder for nav_msgs::msg::Odometry history and TensorList joining</description>
+
+  <maintainer email="user@example.com">ROS User</maintainer>
   <license>Apache-2.0</license>
+  <url type="website">https://developer.nvidia.com/isaac-ros-gems/</url>
+  <author>ROS User</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <build_depend>rclcpp</build_depend>
-  <build_depend>rclcpp_components</build_depend>
-  <build_depend>nav_msgs</build_depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>isaac_ros_managed_nitros</depend>
+  <depend>isaac_ros_tensor_list_interfaces</depend>
+  <depend>isaac_ros_nitros_tensor_list_type</depend>
+  <depend>message_filters</depend>
+
   <build_depend>isaac_ros_common</build_depend>
-  <build_depend>isaac_ros_nitros</build_depend>
-  <build_depend>isaac_ros_nitros_tensor_list_type</build_depend>
-  <build_depend>isaac_ros_managed_nitros</build_depend>
-  <build_depend>isaac_ros_gxf</build_depend>
-
-  <exec_depend>rclcpp</exec_depend>
-  <exec_depend>rclcpp_components</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>isaac_ros_common</exec_depend>
-  <exec_depend>isaac_ros_nitros</exec_depend>
-  <exec_depend>isaac_ros_nitros_tensor_list_type</exec_depend>
-  <exec_depend>isaac_ros_managed_nitros</exec_depend>
-  <exec_depend>isaac_ros_gxf</exec_depend>
-
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
