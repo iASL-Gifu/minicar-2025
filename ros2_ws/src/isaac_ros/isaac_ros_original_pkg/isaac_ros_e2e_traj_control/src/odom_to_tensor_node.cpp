@@ -18,7 +18,7 @@
 #include "isaac_ros_e2e_traj_control/odom_to_tensor_node.hpp"
 
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_builder.hpp"
-#include "isaac_ros_nitros_image_type/nitros_image_rgb8.hpp" // 型名定義のために仮使用
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_generic_f32.hpp"
 
 #include <vector>
 #include <string>
@@ -82,7 +82,7 @@ OdomToTensorNode::OdomToTensorNode(const rclcpp::NodeOptions & options)
     nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
       nvidia::isaac_ros::nitros::NitrosTensorList>>(
     this, "tensor",
-    nvidia::isaac_ros::nitros::nitros_image_rgb8_t::supported_type_name,
+    nvidia::isaac_ros::nitros::nitros_tensor_list_generic_f32_t::supported_type_name,
     nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, output_qos_);
 
   // CUDAストリームの作成
