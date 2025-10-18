@@ -47,7 +47,8 @@ def extract_temporal_samples(
 
     image_data, image_times = [], []
     cmd_data, cmd_times = [], []
-    odom_data, odom_times = [], [] # (x, y, z, qx, qy, qz, qw, vx) の8次元
+    # (変更箇所: コメント) vx -> speed
+    odom_data, odom_times = [], [] # (x, y, z, qx, qy, qz, qw, speed) の8次元
 
     with AnyReader([bag_path]) as reader:
         connections = [
@@ -75,7 +76,7 @@ def extract_temporal_samples(
                 cmd_data.append(np.array([msg.drive.steering_angle, msg.drive.speed], dtype=np.float32))
                 cmd_times.append(timestamp)
 
-            # --- オドメトリ ---
+            # --- オドメトリ (変更箇所) ---
             elif conn.topic == odom_topic and conn.msgtype == "nav_msgs/msg/Odometry":
                 pose = msg.pose.pose
                 pos = np.array([pose.position.x, pose.position.y, pose.position.z])
@@ -85,11 +86,15 @@ def extract_temporal_samples(
                     pose.orientation.z,
                     pose.orientation.w
                 ])
-                # vx (twist.twist.linear.x) を取得
+                # vx と vy を取得
                 vx = msg.twist.twist.linear.x
+                vy = msg.twist.twist.linear.y
                 
-                # pos(3), ori(4), vx(1) を結合して 8次元ベクトルにする
-                odom_vec = np.concatenate([pos, ori, np.array([vx])]).astype(np.float32)
+                # 平面上の「速さ (Speed)」を計算
+                speed = np.sqrt(vx**2 + vy**2)
+                
+                # pos(3), ori(4), speed(1) を結合して 8次元ベクトルにする
+                odom_vec = np.concatenate([pos, ori, np.array([speed])]).astype(np.float32)
                 odom_data.append(odom_vec)
                 odom_times.append(timestamp)
 
@@ -146,10 +151,11 @@ def extract_temporal_samples(
         img = image_data[img_idx]
         current_odom_8d = odom_data[current_odom_idx] # (8,)
 
-        # 未来のローカル軌跡 (x, y, vx) を作成
+        # (変更箇所: コメントと変数名)
+        # 未来のローカル軌跡 (x, y, speed) を作成
         current_pose_7d = current_odom_8d[:7] # 現在の姿勢 (7,)
         future_poses_7d = future_odoms_global[:, :7] # 未来の姿勢 (F, 7)
-        future_vx = future_odoms_global[:, 7] # 未来の速度 (F,)
+        future_speed = future_odoms_global[:, 7] # 未来の速さ (F,)
 
         # 未来のグローバル姿勢 (F, 7) をローカルの (x, y) 座標 (F, 2) に変換
         future_path_local_xy = transform_global_to_local(current_pose_7d, future_poses_7d)
@@ -157,7 +163,7 @@ def extract_temporal_samples(
         # (F, 2) と (F, 1) を結合して (F, 3) の軌跡データにする
         future_trajectory = np.hstack((
             future_path_local_xy, 
-            future_vx.reshape(-1, 1) # (F,) -> (F, 1) に変形
+            future_speed.reshape(-1, 1) # (F,) -> (F, 1) に変形
         )).astype(np.float32)
 
         # (画像, 過去odom(H,8), 未来cmd(F,2), 未来軌跡(F,3))
@@ -180,7 +186,8 @@ def extract_temporal_samples(
         cv2.imwrite(img_path, img)
         np.save(past_odom_path, past_odoms)           # (H, 8)
         np.save(future_cmd_path, future_cmds)         # (F, 2)
-        np.save(future_traj_path, future_trajectory)  # (F, 3) <- (x, y, vx)
+        # (変更箇所: コメント)
+        np.save(future_traj_path, future_trajectory)  # (F, 3) <- (x, y, speed)
 
     print(f"[SAVE] {bag_name}: {len(samples)} samples saved "
           f"(H{history_len}xS{history_step}, F{future_len}xS{future_step})")
