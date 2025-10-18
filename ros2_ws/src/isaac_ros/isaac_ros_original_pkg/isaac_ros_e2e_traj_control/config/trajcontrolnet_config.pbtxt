@@ -19,7 +19,7 @@ input [
     name: "input_odoms" 
     data_type: TYPE_FP32
     # [past_len, odom_features] (config/train.yaml と一致)
-    dims: [ 5, 8 ] 
+    dims: [ 10, 8 ] 
   }
 ]
 
@@ -30,13 +30,13 @@ output [
     name: "output_trajectory" 
     data_type: TYPE_FP32
     # [future_len, 3] (config/train.yaml の future_len=10, (x,y,vx)=3)
-    dims: [ 10, 3 ] 
+    dims: [ 30, 3 ] 
   },
   {
     # (2) 【新規】予測コマンド
     name: "output_commands" 
     data_type: TYPE_FP32
     # [future_len, 2] (config/train.yaml の future_len=10, (steer,speed)=2)
-    dims: [ 10, 2 ] 
+    dims: [ 30, 2 ] 
   }
 ]

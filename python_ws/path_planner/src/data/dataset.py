@@ -80,21 +80,22 @@ class TrajectoryDataset(Dataset):
             print(f"[ERROR] Failed to load data for index {idx} (path: {paths['image']}). Error: {e}")
             return self.__getitem__((idx + 1) % len(self))
 
-        # 3. 画像にのみTransformを適用
-        if self.transform:
-            image_tensor = self.transform(image_np)
-        else:
-            # Transformがない場合は、手動で (C, H, W) のTensorに変換
-            image_tensor = torch.from_numpy(image_np.transpose(2, 0, 1)).float() / 255.0
-
-        # 4. 他のデータをTensorに変換
-        past_odoms_tensor = torch.tensor(past_odoms_np, dtype=torch.float32)
-        future_path_tensor = torch.tensor(future_path_np, dtype=torch.float32)
-        future_cmd_tensor = torch.tensor(future_cmd_np, dtype=torch.float32)
-
-        return {
-            'image': image_tensor,
-            'past_odoms': past_odoms_tensor,
-            'future_path': future_path_tensor,
-            'future_cmd': future_cmd_tensor
+        sample_dict_np = {
+            'image': image_np,
+            'past_odoms': past_odoms_np,
+            'future_path': future_path_np,
+            'future_cmd': future_cmd_np
         }
+
+        if self.transform:
+            sample_tensor_dict = self.transform(sample_dict_np)
+        else:
+            # Transformがない場合もTensor変換を自前で行う
+            sample_tensor_dict = {
+                'image': torch.from_numpy(image_np.transpose(2, 0, 1)).float() / 255.0,
+                'past_odoms': torch.tensor(past_odoms_np, dtype=torch.float32),
+                'future_path': torch.tensor(future_path_np, dtype=torch.float32),
+                'future_cmd': torch.tensor(future_cmd_np, dtype=torch.float32)
+            }
+
+        return sample_tensor_dict

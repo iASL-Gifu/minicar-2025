@@ -170,7 +170,7 @@ def main(cfg: DictConfig) -> None:
     print(f"Using device: {device}")
 
     # パス設定
-    dataset_dir = Path(hydra.utils.to_absolute_path(cfg.dataset_dir))
+    dataset_dir = Path(hydra.utils.to_absolute_path(cfg.data_path))
     model_ckpt = Path(hydra.utils.to_absolute_path(cfg.ckpt_path))
 
     output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
@@ -258,25 +258,49 @@ def main(cfg: DictConfig) -> None:
         img_np = (img_np * 255).clip(0,255).astype(np.uint8)
         img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR) # OpenCV用にBGRに戻す
 
-        # --- 3つのパネルを描画 ---
-        # 1. BEV (予測 vs 正解)
-        bev_canvas = draw_bev_pred_vs_gt(pred_future, gt_future, past_odom_np)
+        # --- 描画と結合 (cfg.load_part に応じて) ---
         
-        # 2. コマンド (予測 vs 正解)
-        cmd_canvas = draw_commands_panel(pred_cmd, gt_cmd)
+        # 1. BEV (trajformer_only または all の場合)
+        bev_canvas = None
+        if cfg.load_part == 'trajformer_only' or cfg.load_part == 'all':
+            bev_canvas = draw_bev_pred_vs_gt(pred_future, gt_future, past_odom_np)
 
-        # 3. 結合
-        bev_h, bev_w, _ = bev_canvas.shape
+        # 2. コマンド (control_only または all の場合)
+        cmd_canvas = None
+        if cfg.load_part == 'control_only' or cfg.load_part == 'all':
+            cmd_canvas = draw_commands_panel(pred_cmd, gt_cmd)
+
+        # 3. 基準となる高さを決定 (BEV優先、なければCMD基準)
+        base_h = 400 # デフォルト
+        base_w = 400 # デフォルト
+        if bev_canvas is not None:
+            base_h, base_w, _ = bev_canvas.shape
+        elif cmd_canvas is not None:
+            base_h, base_w, _ = cmd_canvas.shape
         
-        # 画像とコマンドパネルの高さをBEVに合わせる
+        # 4. 画像を基準の高さにリサイズ
         img_h, img_w, _ = img_np.shape
-        scale_factor = bev_h / img_h
-        resized_img = cv2.resize(img_np, (int(img_w*scale_factor), bev_h))
+        scale_factor = base_h / img_h
+        resized_img = cv2.resize(img_np, (int(img_w*scale_factor), base_h))
         
-        resized_cmd = cv2.resize(cmd_canvas, (bev_w, bev_h))
+        panels_to_combine = [resized_img]
 
-        # [画像, BEV, コマンド] の順で結合
-        combined = np.hstack([resized_img, bev_canvas, resized_cmd])
+        # 5. パネルをリストに追加
+        if bev_canvas is not None:
+            panels_to_combine.append(bev_canvas)
+
+        if cmd_canvas is not None:
+            # もしBEVも存在する場合、CMDのサイズをBEVに合わせる (元コードのロジック踏襲)
+            if bev_canvas is not None and (cmd_canvas.shape[0] != base_h or cmd_canvas.shape[1] != base_w):
+                resized_cmd = cv2.resize(cmd_canvas, (base_w, base_h))
+                panels_to_combine.append(resized_cmd)
+            else:
+                 # BEVがない場合、またはサイズが同じ場合はそのまま追加
+                 panels_to_combine.append(cmd_canvas)
+
+
+        # 6. 存在するパネルだけを結合
+        combined = np.hstack(panels_to_combine)
         cv2.putText(combined, f"Sample {idx}", (10,30), cv2.FONT_HERSHEY_SIMPLEX,0.8,(255,255,255),2)
 
         save_path = save_dir / f"pred_{idx:06d}.png"
