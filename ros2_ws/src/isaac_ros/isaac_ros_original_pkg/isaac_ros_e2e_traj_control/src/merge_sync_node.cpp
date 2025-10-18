@@ -1,7 +1,7 @@
-#include "trajectory_preprocessor/merge_sync_node.hpp"
+#include "isaac_ros_e2e_traj_control/merge_sync_node.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_builder.hpp"
 
-namespace trajectory_preprocessor
+namespace isaac_ros_e2e_traj_control
 {
 
 // CUDAエラーチェックマクロ
@@ -158,7 +158,7 @@ void MergeSyncNode::TensorCallback(const nvidia::isaac_ros::nitros::NitrosTensor
   nitros_tensor_pub_->publish(tensor_list);
 }
 
-}  // namespace trajectory_preprocessor
+}  // namespace isaac_ros_e2e_traj_control
 
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(trajectory_preprocessor::MergeSyncNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(isaac_ros_e2e_traj_control::MergeSyncNode)
