@@ -33,7 +33,6 @@ find_package(isaac_ros_common REQUIRED)
 find_package(CUDA REQUIRED)
 
 # --- 2. ノードのライブラリを作成 ---
-# ターゲット名とソースファイルを odom_to_tensor_node に変更
 add_library(odom_to_tensor_node SHARED
   src/odom_to_tensor_node.cpp
 )
@@ -50,7 +49,6 @@ target_include_directories(odom_to_tensor_node PUBLIC
 ament_target_dependencies(odom_to_tensor_node PUBLIC
   "rclcpp"
   "rclcpp_components"
-  # cv_bridge と sensor_msgs は不要
   "nav_msgs"
   "isaac_ros_nitros"
   "isaac_ros_nitros_image_type"
@@ -64,24 +62,27 @@ target_link_libraries(odom_to_tensor_node PUBLIC
 )
 
 # --- 4. コンポーネントノードとして登録 ---
-# ターゲット名とクラス名を変更 (名前空間に注意)
 rclcpp_components_register_nodes(odom_to_tensor_node
   "nvidia::isaac_ros::e2e_traj_control::OdomToTensorNode"
+=======
 )
 
 # --- 5. インストール設定 ---
 install(
   # ターゲット名を変更
   TARGETS odom_to_tensor_node
+
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
 install(
   DIRECTORY include/
   DESTINATION include
 )
 
+# launch と config ディレクトリをインストール
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}

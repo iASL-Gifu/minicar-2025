@@ -14,7 +14,7 @@
 #include <vector>
 #include <cuda_runtime.h>
 
-namespace trajectory_preprocessor
+namespace isaac_ros_e2e_traj_control
 {
 
 class MergeSyncNode : public rclcpp::Node
@@ -56,4 +56,4 @@ private:
   float* odom_gpu_buffer_{nullptr};
 };
 
-}  // namespace trajectory_preprocessor
+}  // namespace isaac_ros_e2e_traj_control

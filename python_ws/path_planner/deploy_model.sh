@@ -85,7 +85,7 @@ function setup_model() {
     --verbose
   
   echo "Copying config.pbtxt to ${output_path}"
-  local pkg_share_path=$(ros2 pkg prefix isaac_ros_e2e_pilot --share)
+  local pkg_share_path=$(ros2 pkg prefix isaac_ros_e2e_traj_control --share)
   
   if [[ ! -f "${pkg_share_path}/config/${CONFIG_FILE}" ]]; then
      echo "⚠️ [WARNING] Config file not found at: ${pkg_share_path}/config/${CONFIG_FILE}"

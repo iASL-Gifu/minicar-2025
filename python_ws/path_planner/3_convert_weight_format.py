@@ -80,6 +80,7 @@ def main(args):
             opset_version=18,
             do_constant_folding=True, 
             dynamic_axes=dynamic_axes,
+            dynamo=False
         )
 
         print(f"✅ ONNX export complete: {output_path}") 

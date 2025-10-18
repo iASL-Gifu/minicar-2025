@@ -1,7 +1,7 @@
 # config/analyze.yaml
 
 # --- パス設定 ---
-dataset_dir: "./datasets/test"  # 分析したいデータセット 
+data_path: "./datasets/test"  # 分析したいデータセット 
 ckpt_path: "./ckpts/best_model.pth" # 読み込むモデル
 
 # --- モデルのどの部分を読み込むか ---
