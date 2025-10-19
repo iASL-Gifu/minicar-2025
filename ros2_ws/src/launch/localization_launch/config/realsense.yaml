@@ -14,8 +14,8 @@
     enable_infra2: true
     
     # IMU設定
-    accel_fps: 250 # 63 or 250
-    gyro_fps: 400 # 200 or 400
+    accel_fps: 63 # 63 or 250
+    gyro_fps: 200 # 200 or 400
     unite_imu_method: 2
     
     # QoS設定
@@ -23,12 +23,20 @@
 
     # RGBモジュール設定
     rgb_camera:
-      color_prifile: '640x480x30'
+      color_format: 'RGB8'
+      # 6/15/30/60
+      color_profile: '640x480x30'
     
     # 深度モジュール設定
     depth_module:
-      depth_profile: '848x480x30'
-      infra_profile: '848x480x30'
+      # 6/15/30/60/90
+      depth_profile: '640x480x30'
+      depth_format: 'Z16'
+
+      # 6/15/30/60/90
+      infra_profile: '640x480x30'
+      infra1_format: 'Y8'
+      infra2_format: 'Y8'
       emitter_enabled: 0
       emitter_on_off: false
     
@@ -53,6 +61,12 @@
     # 画像転送プラグイン無効化
     # 'image_transport/compressedDepth', 'image_transport/compressed', 'image_transport/raw', 'image_transport/theora'
     realsense2_camera:
+      color:
+        image_raw:
+          enable_pub_plugins: ['image_transport/raw']
+      depth:
+        image_rect_raw:
+          enable_pub_plugins: ['image_transport/raw']
       infra1:
         image_rect_raw:
           enable_pub_plugins: ['image_transport/raw']
