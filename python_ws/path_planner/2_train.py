@@ -234,11 +234,11 @@ def main(cfg: DictConfig) -> None:
 
     model = TrajControlFormer(
         history_len=cfg.dataset.past_len,
-        odom_features=cfg.model.odom_dim,
+        odom_features=cfg.model.odom_features,
         future_len=cfg.dataset.future_len,
         image_embedding_dim=cfg.model.image_embedding_dim,
         motion_embedding_dim=cfg.model.motion_embedding_dim,
-        transformer_d_model=cfg.model.d_model,
+        transformer_d_model=cfg.model.transformer_d_model,
         transformer_nhead=cfg.model.transformer_nhead,
         transformer_num_layers=cfg.model.transformer_num_layers,
         control_motion_embedding_dim=cfg.model.control_motion_embedding_dim,

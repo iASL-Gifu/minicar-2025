@@ -168,31 +168,31 @@ def main(cfg: DictConfig) -> None:
     dataset = MultiSequenceDataset(base_dir=dataset_dir, transform=transform, sequence_indices=select_sequences)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=cfg.training.num_workers)
 
-
     model = TrajControlFormer(
-        # --- TrajFormer ---
         history_len=cfg.dataset.past_len,
-        odom_features=cfg.model.odom_dim,
         future_len=cfg.dataset.future_len,
+        
+        # --- YAML/configキーとクラス引数名を統一 ---
+        odom_features=cfg.model.odom_features,
         image_embedding_dim=cfg.model.image_embedding_dim,
         motion_embedding_dim=cfg.model.motion_embedding_dim,
-        transformer_d_model=cfg.model.d_model,
+        transformer_d_model=cfg.model.transformer_d_model,
         transformer_nhead=cfg.model.transformer_nhead,
         transformer_num_layers=cfg.model.transformer_num_layers,
 
-        # --- ControlFormer (独立GRU構成) ---
         control_motion_embedding_dim=cfg.model.control_motion_embedding_dim,
         control_d_model=cfg.model.control_d_model,
         control_nhead=cfg.model.control_nhead,
         control_num_layers=cfg.model.control_num_layers
     ).to(device)
     
+    
     load_weights_cfg = cfg.get('load_weights', None)
     model_ckpt = cfg.get('ckpt_path', None) 
 
     loaded_weights = False
-    draw_bev = False # BEVを描画するか
-    draw_cmd = False # CMDを描画するか
+    draw_bev = False
+    draw_cmd = False
 
     if load_weights_cfg:
         print("🔄 [Load Weights] Checking for individual module weights...")
@@ -208,7 +208,7 @@ def main(cfg: DictConfig) -> None:
                     model.trajformer.load_state_dict(weights, strict=True)
                     print(f"   ✅ Loaded 'model.trajformer' from: {traj_path_abs}")
                     loaded_weights = True
-                    draw_bev = True # ★描画フラグON
+                    draw_bev = True
                 except Exception as e:
                     print(f"   ⚠️ Failed to load 'model.trajformer' from {traj_path_abs}: {e}")
             else:
@@ -222,7 +222,7 @@ def main(cfg: DictConfig) -> None:
                     model.control_net.load_state_dict(weights, strict=True)
                     print(f"   ✅ Loaded 'model.control_net' from: {ctrl_path_abs}")
                     loaded_weights = True
-                    draw_cmd = True # ★描画フラグON
+                    draw_cmd = True
                 except Exception as e:
                     print(f"   ⚠️ Failed to load 'model.control_net' from {ctrl_path_abs}: {e}")
             else:
@@ -247,8 +247,8 @@ def main(cfg: DictConfig) -> None:
             model.load_state_dict(state_dict)
             print(f"[INFO] Loaded full model weights.")
             loaded_weights = True
-            draw_bev = True # E2Eモデルは両方描画
-            draw_cmd = True # E2Eモデルは両方描画
+            draw_bev = True
+            draw_cmd = True
         except RuntimeError as e:
              print(f"⚠️ [Single Ckpt] Failed to load weights (Key mismatch?): {e}")
 
@@ -295,7 +295,6 @@ def main(cfg: DictConfig) -> None:
         img_np = (img_np * 255).clip(0,255).astype(np.uint8)
         img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
 
-        # --- 描画と結合 ---
         
         base_h = 400 
         base_w = 400 
