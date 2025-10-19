@@ -4,6 +4,10 @@
     <arg name="camera_height" default="480" />
     <arg name="realsense_config_file" default="$(find-pkg-share localization_launch)/config/realsense.yaml" />
     <arg name="vslam_config_file" default="$(find-pkg-share localization_launch)/config/vslam.yaml" />
+    <arg name="section_config_file" default="$(find-pkg-share localization_launch)/config/section_detector.yaml" />
+    <arg name="vgl_map_dir" default="/workspaces/src/launch/localization_launch/keyframes/20251019_091225" description="Path to VGL map directory"/>
+    <arg name="camera_names" default="front" description="Camera configuration"/>
+    <arg name="debug" default="false" />
 
     <node_container pkg="rclcpp_components" exec="component_container_mt" name="localization_container" namespace="">
 
@@ -41,15 +45,42 @@
             <remap from="/visual_slam/image_0" to="left/image_rect_mono" />
             <remap from="/visual_slam/camera_info_0" to="left/camera_info_rect" />
             <remap from="/visual_slam/image_1" to="right/image_rect_mono" />
-            <remap from="/visual_slam/camera_info_1" to="right/camera_info_rect" />
+            <remap from="/visual_slam/camera_info_1" to="right/camera_info_rect_fixed" />
             <remap from="/visual_slam/image_2" to="rear_left/image_rect_mono" />
             <remap from="/visual_slam/camera_info_2" to="rear_left/camera_info_rect" />
             <remap from="/visual_slam/image_3" to="rear_right/image_rect_mono" />
             <remap from="/visual_slam/camera_info_3" to="rear_right/camera_info_rect" />
             <remap from="/visual_slam/imu" to="camera/imu" />
+            <remap from="/visual_slam/initial_pose" to="/visual_localization/pose" />
         </composable_node>
 
     </node_container>
+
+    <node pkg="frame_id_exchanger" exec="frame_id_exchanger" name="frame_id_exchanger_right" namespace="">
+        <param name="input_topic" value="/right/camera_info_rect" />
+        <param name="output_topic" value="/right/camera_info_rect_fixed" />
+        <param name="new_frame_id" value="camera_infra2_optical_frame" />
+    </node>
+
+    <include file="$(find-pkg-share isaac_ros_visual_global_localization)/launch/isaac_ros_visual_global_localization_node.launch.py">
+        <arg name="vgl_map_dir" value="$(var vgl_map_dir)"/>
+        <arg name="camera_names" value="$(var camera_names)"/>
+        <arg name="vgl_use_infra_cameras" value="true" />
+    </include>
+
+    <node pkg="section_detector" exec="section_detector_node" name="section_detector">
+        <param from="$(var section_config_file)" />
+    </node>
+
+
+    <group if="$(var debug)">
+        <node pkg="localization_visualizer" exec="localization_visualizer_node" name="localization_visualizer">
+        </node>
+
+        <node pkg="marker_publisher" exec="marker_publisher_node" name="marker_publisher">
+            <param from="$(var section_config_file)" />
+        </node>
+    </group>
 
     <node pkg="tf2_ros" exec="static_transform_publisher"
       name="base_to_camera_publisher"

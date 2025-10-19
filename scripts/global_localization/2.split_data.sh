@@ -7,7 +7,7 @@ WS_PATH=/workspaces
 source ${WS_PATH}/install/setup.bash
 
 # /workspaces/record/ 配下で日付形式の*.mcapファイルを検索
-RECORD_DIR="/workspaces/record"
+RECORD_DIR="/workspaces/record/map_source"
 
 echo "=========================================="
 echo "mcap バッグファイルを検索中..."

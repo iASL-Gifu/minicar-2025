@@ -37,14 +37,79 @@ read -p "Enter your choice [1-3]: " choice
 case $choice in
     1)
         echo ""
+        echo -e "${YELLOW}=== Select Map for Odometry Recording ===${NC}"
+        echo ""
+        
+        # マップディレクトリのベースパス
+        MAP_BASE_DIR="/workspaces/src/launch/localization_launch/map"
+        
+        # 利用可能なマップをリスト取得
+        if [ -d "$MAP_BASE_DIR" ]; then
+            mapfile -t AVAILABLE_MAPS < <(ls -1 "$MAP_BASE_DIR" 2>/dev/null | sort -r)
+        fi
+        
+        # マップ選択
+        if [ ${#AVAILABLE_MAPS[@]} -gt 0 ]; then
+            echo "Available maps:"
+            echo ""
+            for i in "${!AVAILABLE_MAPS[@]}"; do
+                echo "  $((i+1))) ${AVAILABLE_MAPS[$i]}"
+            done
+            echo "  0) Enter custom name"
+            echo ""
+            
+            read -p "Select map [0-${#AVAILABLE_MAPS[@]}]: " MAP_CHOICE
+            
+            if [ "$MAP_CHOICE" = "0" ]; then
+                # カスタム名入力
+                DEFAULT_MAP_NAME=$(date +%Y%m%d_%H%M%S)
+                echo ""
+                echo "Default map name: $DEFAULT_MAP_NAME"
+                read -p "Enter map name (press Enter to use default): " USER_MAP_NAME
+                
+                if [ -z "$USER_MAP_NAME" ]; then
+                    MAP_NAME="$DEFAULT_MAP_NAME"
+                else
+                    MAP_NAME="$USER_MAP_NAME"
+                fi
+            elif [ "$MAP_CHOICE" -ge 1 ] && [ "$MAP_CHOICE" -le ${#AVAILABLE_MAPS[@]} ]; then
+                # リストから選択
+                MAP_NAME="${AVAILABLE_MAPS[$((MAP_CHOICE-1))]}"
+            else
+                echo -e "${RED}Invalid selection!${NC}"
+                exit 1
+            fi
+        else
+            # マップが見つからない場合
+            echo "No existing maps found."
+            echo ""
+            DEFAULT_MAP_NAME=$(date +%Y%m%d_%H%M%S)
+            echo "Default map name: $DEFAULT_MAP_NAME"
+            read -p "Enter map name (press Enter to use default): " USER_MAP_NAME
+            
+            if [ -z "$USER_MAP_NAME" ]; then
+                MAP_NAME="$DEFAULT_MAP_NAME"
+            else
+                MAP_NAME="$USER_MAP_NAME"
+            fi
+        fi
+        
+        echo ""
+        echo -e "${GREEN}Selected map: ${MAP_NAME}${NC}"
+        
+        # マップ用のサブディレクトリを作成
+        MAP_PATH="$BASE_PATH/$MAP_NAME"
+        mkdir -p "$MAP_PATH"
+        
+        echo ""
         echo -e "${YELLOW}Starting odometry logger...${NC}"
-        echo -e "${YELLOW}Data will be saved to: ${BASE_PATH}/${NC}"
+        echo -e "${YELLOW}Data will be saved to: ${MAP_PATH}/${NC}"
         echo -e "${YELLOW}Press Ctrl+C to stop and save data${NC}"
         echo ""
         sleep 1
         
-        # ロガーを実行（BASE_PATHを環境変数として渡す）
-        BASE_PATH="$BASE_PATH" python3 /scripts/global_localization/odom_logger.py
+        # ロガーを実行（MAP_PATHを環境変数として渡す）
+        BASE_PATH="$MAP_PATH" python3 /scripts/global_localization/odom_logger.py
         
         echo ""
         echo -e "${GREEN}Data saved successfully!${NC}"
@@ -52,15 +117,51 @@ case $choice in
         
     2)
         echo ""
-        echo -e "${YELLOW}Available CSV files in ${BASE_PATH}:${NC}"
+        echo -e "${YELLOW}=== Select Map Directory ===${NC}"
+        echo ""
+        
+        # マップディレクトリをリスト表示
+        map_dirs=("$BASE_PATH"/*)
+        
+        if [ ${#map_dirs[@]} -eq 0 ] || [ ! -d "${map_dirs[0]}" ]; then
+            echo -e "${RED}No map directories found in ${BASE_PATH}!${NC}"
+            echo "Please run the logger first (option 1)"
+            exit 1
+        fi
+        
+        # ディレクトリ一覧を表示
+        echo "Available map directories:"
+        echo ""
+        for i in "${!map_dirs[@]}"; do
+            dir="${map_dirs[$i]}"
+            if [ -d "$dir" ]; then
+                dirname=$(basename "$dir")
+                csv_count=$(find "$dir" -maxdepth 1 -name "odometry_path_*.csv" 2>/dev/null | wc -l)
+                echo "  $((i+1))) $dirname (${csv_count} CSV files)"
+            fi
+        done
+        
+        echo ""
+        read -p "Select map directory [1-${#map_dirs[@]}]: " dir_choice
+        
+        # 入力チェック
+        if ! [[ "$dir_choice" =~ ^[0-9]+$ ]] || [ "$dir_choice" -lt 1 ] || [ "$dir_choice" -gt ${#map_dirs[@]} ]; then
+            echo -e "${RED}Invalid selection!${NC}"
+            exit 1
+        fi
+        
+        # 選択されたディレクトリ
+        selected_dir="${map_dirs[$((dir_choice-1))]}"
+        
+        echo ""
+        echo -e "${YELLOW}Available CSV files in $(basename "$selected_dir"):${NC}"
         echo ""
         
         # CSVファイルをリスト表示
-        csv_files=("$BASE_PATH"/odometry_path_*.csv)
+        csv_files=("$selected_dir"/odometry_path_*.csv)
         
         if [ ${#csv_files[@]} -eq 0 ] || [ ! -e "${csv_files[0]}" ]; then
-            echo -e "${RED}No CSV files found in ${BASE_PATH}!${NC}"
-            echo "Please run the logger first (option 1)"
+            echo -e "${RED}No CSV files found in this directory!${NC}"
             exit 1
         fi
         

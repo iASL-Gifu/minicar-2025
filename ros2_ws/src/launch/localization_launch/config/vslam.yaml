@@ -138,10 +138,8 @@
     # 各記録点には位置・姿勢・画像データが含まれる
     # 多いほど広い範囲を記憶するが、メモリと処理負荷が増える
     # ============================================
-    # save_map_folder_path: "/workspaces/src/launch/localization_launch/map/e511_v2"
-    # load_map_folder_path: ""
     save_map_folder_path: ""
-    load_map_folder_path: "/workspaces/src/launch/localization_launch/map/e511_v2"
+    load_map_folder_path: ""
     localize_on_startup: false
     slam_max_map_size: 300
     

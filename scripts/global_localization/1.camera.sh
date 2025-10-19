@@ -8,5 +8,4 @@ source ${WS_PATH}/install/setup.bash
 
 # RealSense設定ファイルのパスを指定してlaunch起動
 ros2 launch localization_launch realsense.launch.xml \
-  realsense_config_file:=$(ros2 pkg prefix localization_launch)/share/localization_launch/config/realsense.yaml \
-  global_localization:=true
+  realsense_config_file:=$(ros2 pkg prefix localization_launch)/share/localization_launch/config/realsense.yaml

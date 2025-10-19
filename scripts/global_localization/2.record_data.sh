@@ -1,10 +1,27 @@
 #!/bin/bash
 
 # recordディレクトリに移動
-cd /workspaces/record || exit 1
+cd /workspaces/record/map_source || exit 1
 
-# 日付でディレクトリ名を生成（例：20251018_104530）
-DIR_NAME=$(date +%Y%m%d_%H%M%S)
+# デフォルトのディレクトリ名を生成（例：20251018_104530）
+DEFAULT_DIR_NAME=$(date +%Y%m%d_%H%M%S)
+
+echo "=========================================="
+echo "ROS2 Bag Recording Setup"
+echo "=========================================="
+echo ""
+echo "Default directory name: $DEFAULT_DIR_NAME"
+echo ""
+read -p "Enter directory name (press Enter to use default): " USER_INPUT
+
+# ユーザー入力があればそれを使用、なければデフォルトを使用
+if [ -z "$USER_INPUT" ]; then
+  DIR_NAME="$DEFAULT_DIR_NAME"
+  echo "Using default: $DIR_NAME"
+else
+  DIR_NAME="$USER_INPUT"
+  echo "Using: $DIR_NAME"
+fi
 
 # ディレクトリを作成
 mkdir -p "$DIR_NAME"
@@ -12,6 +29,7 @@ mkdir -p "$DIR_NAME"
 # 作成したディレクトリに移動
 cd "$DIR_NAME" || exit 1
 
+echo ""
 echo "=========================================="
 echo "Recording directory: $(pwd)"
 echo "=========================================="
