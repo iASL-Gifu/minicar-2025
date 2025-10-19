@@ -145,6 +145,7 @@ ros2_ws/install/
 # Isaac ROS Visual SLAM map database files
 ros2_ws/src/launch/localization_launch/map/
 ros2_ws/src/launch/localization_launch/keyframes
+ros2_ws/src/launch/localization_launch/path
 
 # debug data
 /debug
