@@ -6,6 +6,9 @@ WINDOW_NAME="main"                             # ウィンドウ名
 ROS_WS_PATH="${ISAAC_ROS_WS}" # ROS 2ワークスペースのパス
 SETUP_SCRIPT="source /workspaces/install/setup.bash" # setup.bashへのフルパスを指定
 
+# --- よく使うコマンド（実行はしない） ---
+COMMON_CMD="ros2 launch system_launch base_system.launch.xml"
+
 # --- セッション名の決定 ---
 if [ -n "$1" ]; then
   SESSION_NAME="$1"
@@ -33,8 +36,14 @@ if [ $? != 0 ]; then
   tmux split-window -h -t $SESSION_NAME:$WINDOW_NAME.1
 
   # --- 各ペインでコマンドを実行 ---
+  
   # 左上 (ペイン0)
+  # ----------------------------------------------------
+
   tmux send-keys -t $SESSION_NAME:$WINDOW_NAME.0 "export ROS_LOCALHOST_ONLY=0 && $SETUP_SCRIPT && clear" C-m
+
+  tmux send-keys -t $SESSION_NAME:$WINDOW_NAME.0 "$COMMON_CMD"
+  # ----------------------------------------------------
   
   # 左下 (ペイン1)
   tmux send-keys -t $SESSION_NAME:$WINDOW_NAME.1 "export ROS_LOCALHOST_ONLY=0 && $SETUP_SCRIPT && clear" C-m
@@ -45,7 +54,7 @@ if [ $? != 0 ]; then
   # 右下 (ペイン3)
   tmux send-keys -t $SESSION_NAME:$WINDOW_NAME.3 "export ROS_LOCALHOST_ONLY=0 && $SETUP_SCRIPT && clear" C-m
 
-  # 最後にアクティブにするペインを選択 (例: 左上のペイン0)
+  # 最後にアクティブにするペインを選択 (左上のペイン0)
   tmux select-pane -t $SESSION_NAME:$WINDOW_NAME.0
 
 fi
