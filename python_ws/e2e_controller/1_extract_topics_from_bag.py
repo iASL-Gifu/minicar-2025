@@ -11,6 +11,7 @@ from rosbags.highlevel import AnyReader
 def extract_and_save_per_bag(bag_path, output_dir, image_topic, cmd_topic, odom_topic):
     """
     単一のrosbagファイルからデータを抽出する並列ワーカー関数。
+    (odomは任意)
     """
     pid = os.getpid()  
     bag_path = Path(bag_path).expanduser().resolve()
@@ -61,24 +62,38 @@ def extract_and_save_per_bag(bag_path, output_dir, image_topic, cmd_topic, odom_
         print(f"[PID:{pid} ERROR] {bag_name}: Failed to read bag file. {e}")
         return
 
-    if len(image_data) == 0 or len(cmd_data) == 0 or len(odom_data) == 0:
-        print(f'[PID:{pid} WARN] Skipping {bag_name}: insufficient data (images, commands, or odometry)')
+    # [MODIFIED] image と cmd があれば処理を続行 (odomはチェックしない)
+    if len(image_data) == 0 or len(cmd_data) == 0:
+        print(f'[PID:{pid} WARN] Skipping {bag_name}: insufficient data (images or commands)')
         return
+
+    # [NEW] odom があるかどうかをフラグ管理
+    has_odom = len(odom_data) > 0
+    if not has_odom:
+        print(f'[PID:{pid} WARN] {bag_name}: No odometry data found. Proceeding without odom.')
+
 
     image_times = np.array(image_times)
     cmd_data, cmd_times = np.array(cmd_data), np.array(cmd_times)
-    odom_data, odom_times = np.array(odom_data), np.array(odom_times)
+    
+    # [MODIFIED] odom がある場合のみ numpy 配列に変換
+    if has_odom:
+        odom_data, odom_times = np.array(odom_data), np.array(odom_times)
 
     synced_images, synced_steers, synced_speeds, synced_odoms = [], [], [], []
 
     for i, itime in enumerate(image_times):
+        # image と cmd は必須
         idx_cmd = np.argmin(np.abs(cmd_times - itime))
-        idx_odom = np.argmin(np.abs(odom_times - itime))
-
+        
         synced_images.append(image_data[i])
         synced_steers.append(cmd_data[idx_cmd][0])
         synced_speeds.append(cmd_data[idx_cmd][1])
-        synced_odoms.append(odom_data[idx_odom])
+
+        # [MODIFIED] odom がある場合のみ同期
+        if has_odom:
+            idx_odom = np.argmin(np.abs(odom_times - itime))
+            synced_odoms.append(odom_data[idx_odom])
 
     images_save_dir = out_dir / 'images'
     images_save_dir.mkdir(exist_ok=True)
@@ -90,7 +105,10 @@ def extract_and_save_per_bag(bag_path, output_dir, image_topic, cmd_topic, odom_
 
     np.save(out_dir / 'steers.npy', np.array(synced_steers))
     np.save(out_dir / 'speeds.npy', np.array(synced_speeds))
-    np.save(out_dir / 'odoms.npy', np.array(synced_odoms))
+    
+    # [MODIFIED] odom がある場合のみ保存
+    if has_odom:
+        np.save(out_dir / 'odoms.npy', np.array(synced_odoms))
 
     print(f'[PID:{pid} SAVE] {bag_name}: {len(synced_images)} samples saved to {out_dir}')
 
