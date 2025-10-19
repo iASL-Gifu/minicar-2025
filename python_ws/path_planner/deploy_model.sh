@@ -14,7 +14,7 @@
 
 # === Default arguments ===
 INPUT_ONNX_PATH="" 
-MODEL_NAME=""      
+MODEL_NAME="trajcontrolnet"      
 HEIGHT="120"
 WIDTH="160"
 CONFIG_FILE="trajcontrolnet_config.pbtxt" 

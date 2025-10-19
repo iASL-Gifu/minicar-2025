@@ -23,7 +23,7 @@
 
 # === Default arguments ===
 INPUT_ONNX_PATH="" 
-MODEL_NAME=""      
+MODEL_NAME="pilotnet"      
 HEIGHT="120"
 WIDTH="160"
 INPUT_TENSOR_NAME="input_1"
