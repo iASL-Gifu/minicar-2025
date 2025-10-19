@@ -1,6 +1,13 @@
 # --- データ関連の設定 ---
 data_path: "./datasets/"  # TrajectoryDataset の出力ディレクトリ
 resume_ckpt_path: null
+
+load_weights:
+  # path_generation で学習した重み
+  trajformer_path: null
+  # path_follow で学習した重み
+  controlnet_path: null
+
 # --- データセットと変換の設定 ---
 dataset:
   image_height: 120

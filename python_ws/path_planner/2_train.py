@@ -204,17 +204,26 @@ def main(cfg: DictConfig) -> None:
     ).to(device)
 
 
+    # =========================================================
+    # ▼▼▼▼▼▼ 重み読み込みロジックの変更 ▼▼▼▼▼▼
+    # =========================================================
+    
+    # 優先度1: 学習全体を再開する (resume_ckpt_path)
     resume_ckpt_path = cfg.get('resume_ckpt_path', None)
+    
+    # 優先度2: 個別モジュールの重みを読み込む (load_weights)
+    load_weights_cfg = cfg.get('load_weights', None) 
 
+    loaded_from_resume = False # resume_ckpt_path からロードしたかどうかのフラグ
+
+    # 優先度1: resume_ckpt_path の処理
     if resume_ckpt_path:
         resume_ckpt_path_abs = hydra.utils.to_absolute_path(resume_ckpt_path)
         if os.path.exists(resume_ckpt_path_abs):
-            print(f"🔄 Loading weights from: {resume_ckpt_path_abs}")
+            print(f"🔄 [Resume] Loading weights from: {resume_ckpt_path_abs}")
             try:
-                # 重み（state_dict）を読み込む
                 weights = torch.load(resume_ckpt_path_abs, map_location=device)
                 
-                # modeに応じてロード対象のモジュールを変更
                 if mode == 'all':
                     print(f"   Loading weights into 'model' (Mode: {mode})")
                     model.load_state_dict(weights)
@@ -225,22 +234,73 @@ def main(cfg: DictConfig) -> None:
                     print(f"   Loading weights into 'model.control_net' (Mode: {mode})")
                     model.control_net.load_state_dict(weights)
                 
-                print("→ Weights loaded successfully.")
+                print("→ [Resume] Weights loaded successfully.")
+                loaded_from_resume = True # ロード成功フラグ
 
             except RuntimeError as e:
-                # キーの不一致（例: mode='all' なのに best_trajformer.pth を指定した）
-                print(f"⚠️ Failed to load weights (Key mismatch?): {e}")
+                print(f"⚠️ [Resume] Failed to load weights (Key mismatch?): {e}")
                 print(f"   Ensure checkpoint matches training mode ('{mode}').")
-                print("→ Starting training from scratch.")
+                print("→ Starting training from scratch (or checking individual weights).")
             except Exception as e:
-                # その他のエラー
-                print(f"⚠️ Failed to load weights (Other error): {e}")
-                print("→ Starting training from scratch.")
+                print(f"⚠️ [Resume] Failed to load weights (Other error): {e}")
+                print("→ Starting training from scratch (or checking individual weights).")
         else:
-            print(f"⚠️ Checkpoint path specified but not found: {resume_ckpt_path_abs}")
-            print("→ Starting training from scratch.")
-    else:
+            print(f"⚠️ [Resume] Checkpoint path specified but not found: {resume_ckpt_path_abs}")
+            print("→ Starting training from scratch (or checking individual weights).")
+
+    # 優先度2: resume_ckpt_path がない場合、load_weights の処理を試みる
+    if not loaded_from_resume and load_weights_cfg:
+        print("🔄 [Load Weights] Checking for individual module weights...")
+        
+        traj_path = load_weights_cfg.get('trajformer_path', None)
+        ctrl_path = load_weights_cfg.get('controlnet_path', None)
+        
+        loaded_individual = False
+
+        # 1. TrajFormer の重みをロード
+        if traj_path:
+            traj_path_abs = hydra.utils.to_absolute_path(traj_path)
+            if os.path.exists(traj_path_abs):
+                try:
+                    weights = torch.load(traj_path_abs, map_location=device)
+                    # strict=False : TrajFormerの重みのみをロードし、ControlNetのキーがなくてもエラーにしない
+                    model.trajformer.load_state_dict(weights, strict=True) 
+                    print(f"   ✅ Loaded 'model.trajformer' from: {traj_path_abs}")
+                    loaded_individual = True
+                except Exception as e:
+                    print(f"   ⚠️ Failed to load 'model.trajformer' from {traj_path_abs}: {e}")
+            else:
+                print(f"   ⚠️ 'trajformer_path' specified but not found: {traj_path_abs}")
+        
+        # 2. ControlNet の重みをロード
+        if ctrl_path:
+            ctrl_path_abs = hydra.utils.to_absolute_path(ctrl_path)
+            if os.path.exists(ctrl_path_abs):
+                try:
+                    weights = torch.load(ctrl_path_abs, map_location=device)
+                    # strict=False : ControlNetの重みのみをロードし、TrajFormerのキーがなくてもエラーにしない
+                    model.control_net.load_state_dict(weights, strict=True) 
+                    print(f"   ✅ Loaded 'model.control_net' from: {ctrl_path_abs}")
+                    loaded_individual = True
+                except Exception as e:
+                    print(f"   ⚠️ Failed to load 'model.control_net' from {ctrl_path_abs}: {e}")
+            else:
+                print(f"   ⚠️ 'controlnet_path' specified but not found: {ctrl_path_abs}")
+
+        if not loaded_individual:
+             print("→ [Load Weights] No valid individual weights found or specified.")
+             print(f"🚀 Starting training from scratch (Mode: {mode}).")
+        else:
+            print(f"→ [Load Weights] Finished loading individual weights. Starting training (Mode: {mode}).")
+
+    # 優先度3: どちらも指定されていない場合（スクラッチ）
+    elif not loaded_from_resume:
         print(f"🚀 Starting training from scratch (Mode: {mode}).")
+    
+    # =========================================================
+    # ▲▲▲▲▲▲ 重み読み込みロジックの変更 終了 ▲▲▲▲▲▲
+    # =========================================================
+
 
     criterion_traj = nn.SmoothL1Loss()
     criterion_cmd = nn.SmoothL1Loss()

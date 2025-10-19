@@ -35,7 +35,7 @@ model:
   control_num_layers: 2
 
 analysis:
-  select_sequences: [1]  
+  select_sequences: [0]  
 # --- Hydra (ここですべての出力先が決まる) ---
 hydra:
   run:
