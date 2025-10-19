@@ -3,7 +3,7 @@
 # --- 設定項目 (環境に合わせて変更してください) ---
 
 # コピー元の基準ディレクトリ
-SOURCE_BASE_DIR="/home/tamiya/workspaces/minicar-2025/ros2_ws/record"
+SOURCE_BASE_DIR="/home/tamiya/workspace/minicar-2025/ros2_ws/record"
 
 # マウントするデバイス名
 DEVICE="/dev/sda1"
