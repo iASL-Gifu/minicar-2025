@@ -4,7 +4,7 @@
 DEFAULT_SESSION_NAME="tamiya"                     # デフォルトのセッション名
 WINDOW_NAME="main"                             # ウィンドウ名
 ROS_WS_PATH="${ISAAC_ROS_WS}" # ROS 2ワークスペースのパス
-SETUP_SCRIPT="source install/setup.bash" # setup.bashへのフルパスを指定
+SETUP_SCRIPT="source /workspaces/install/setup.bash" # setup.bashへのフルパスを指定
 
 # --- セッション名の決定 ---
 if [ -n "$1" ]; then
