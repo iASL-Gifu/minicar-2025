@@ -1,6 +1,6 @@
 # --- データ関連の設定 ---
 data_path: "./datasets/"  # データ抽出スクリプトの出力ディレクトリ
-
+resume_ckpt_path: null
 # --- データセットと変換の設定 ---
 dataset:
   sequence_length: 1

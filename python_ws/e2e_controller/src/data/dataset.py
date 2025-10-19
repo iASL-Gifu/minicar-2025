@@ -21,9 +21,9 @@ class SequenceDataset(Dataset):
 
         # --- 各データのパスを取得 ---
         self.image_files = sorted(glob.glob(str(self.seq_dir / "images" / "*.png")))
-        self.steer_file = self.seq_dir / "steer.npy"
-        self.speed_file = self.seq_dir / "speed.npy"
-        self.odom_file = self.seq_dir / "odom.npy"
+        self.steer_file = self.seq_dir / "steers.npy"
+        self.speed_file = self.seq_dir / "speeds.npy"
+        self.odom_file = self.seq_dir / "odoms.npy"
 
         # --- ラベル類を読み込み ---
         self.steers = np.load(self.steer_file)
@@ -36,30 +36,32 @@ class SequenceDataset(Dataset):
     def __len__(self):
         return len(self.image_files) - self.seq_len + 1
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Dict[str, Union[torch.Tensor, np.ndarray]]:
         # --- 画像シーケンスを読み込み ---
         img_seq = []
         for i in range(self.seq_len):
             img_path = self.image_files[idx + i]
             img = cv2.imread(img_path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = img.astype(np.float32) / 255.0
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # (H, W, C) uint8 NumPy
+            # img = img.astype(np.float32) / 255.0  <- 削除。正規化は Transform が行う
             img_seq.append(img)
 
-        image_tensor_seq = torch.tensor(np.stack(img_seq), dtype=torch.float32).permute(0, 3, 1, 2)
+        # (seq_len, H, W, C) uint8 NumPy 配列
+        image_seq_numpy = np.stack(img_seq) 
+        
         steers_tensor_seq = torch.tensor(self.steers[idx:idx + self.seq_len], dtype=torch.float32)
         speeds_tensor_seq = torch.tensor(self.speeds[idx:idx + self.seq_len], dtype=torch.float32)
         odoms_tensor_seq = torch.tensor(self.odoms[idx:idx + self.seq_len], dtype=torch.float32)
 
         sample = {
-            'image': image_tensor_seq,
+            'image': image_seq_numpy, # ★ NumPy 配列 (seq_len, H, W, C) のまま渡す
             'steer': steers_tensor_seq,
             'speed': speeds_tensor_seq,
             'odom': odoms_tensor_seq
         }
 
         if self.transform:
-            sample = self.transform(sample)
+            sample = self.transform(sample) # ★ Transform が NumPy -> Tensor 変換を行う
 
         return sample
 
@@ -109,7 +111,7 @@ class MultiSequenceDataset(Dataset):
         """再帰的に探索し、'images' と必要な .npy があるディレクトリをsequenceと認定"""
         seq_dirs = []
         for path in base_dir.rglob('*'):
-            if (path / 'images').is_dir() and (path / 'steer.npy').exists():
+            if (path / 'images').is_dir() and (path / 'steers.npy').exists():
                 seq_dirs.append(path)
         seq_dirs.sort()
         return seq_dirs

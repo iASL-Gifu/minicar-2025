@@ -13,7 +13,7 @@ from src.model.pilotnet import PilotNet
 
 
 # =========================================================
-# 学習1エポック
+# 学習1エポック 
 # =========================================================
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
@@ -89,9 +89,9 @@ def main(cfg: DictConfig) -> None:
     test_path = os.path.join(base_path, "test")
 
     # =====================================================
-    # Dataset: train（再帰探索対応）
+    # Dataset: train
     # =====================================================
-    train_dataset = MultiSequenceDataset(  # ← 再帰探索に変更
+    train_dataset = MultiSequenceDataset(  
         base_dir=train_path,
         seq_len=cfg.dataset.sequence_length,
         transform=TrainTransform(
@@ -109,7 +109,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     # =====================================================
-    # Dataset: validation（存在する場合のみ）
+    # Dataset: validation
     # =====================================================
     val_loader = None
     if os.path.exists(test_path):
@@ -143,6 +143,38 @@ def main(cfg: DictConfig) -> None:
 
     best_metric = float('inf')
 
+    resume_ckpt_path = cfg.get('resume_ckpt_path', None)
+
+    if resume_ckpt_path:
+        resume_ckpt_path_abs = hydra.utils.to_absolute_path(resume_ckpt_path)
+        if os.path.exists(resume_ckpt_path_abs):
+            print(f"🔄 Loading weights from: {resume_ckpt_path_abs}")
+            try:
+                # 重み（state_dict）を直接読み込む
+                weights = torch.load(resume_ckpt_path_abs, map_location=device)
+                
+                if isinstance(weights, dict) and 'model_state_dict' in weights:
+
+                    model.load_state_dict(weights['model_state_dict'])
+                    print("→ Loaded 'model_state_dict' from checkpoint dictionary.")
+                elif isinstance(weights, dict):
+                     # state_dict が直接保存されている場合
+                    model.load_state_dict(weights)
+                    print("→ Loaded weights (state_dict) directly.")
+                else:
+                    print(f"⚠️ Checkpoint format not recognized (Type: {type(weights)}). Starting from scratch.")
+
+            except Exception as e:
+                print(f"⚠️ Failed to load weights: {e}")
+                print("→ Starting training from scratch.")
+        else:
+            print(f"⚠️ Checkpoint path specified but not found: {resume_ckpt_path_abs}")
+            print("→ Starting training from scratch.")
+    else:
+        print("🚀 Starting training from scratch.")
+
+
+
     # =====================================================
     # 学習ループ
     # =====================================================
@@ -162,10 +194,10 @@ def main(cfg: DictConfig) -> None:
         # === Best model 保存 ===
         if current_metric < best_metric:
             best_metric = current_metric
+            
             torch.save(model.state_dict(), os.path.join(ckpt_dir, 'best_model.pth'))
             print(f"✨ Improved best model (metric={best_metric:.4f}) saved!")
 
-        # === Last model 保存 ===
         torch.save(model.state_dict(), os.path.join(ckpt_dir, 'last_model.pth'))
 
     print("✅ Finished training.")

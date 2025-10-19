@@ -118,9 +118,8 @@ def get_pil_transform(height, width, mean, std, is_train=True):
 
 class TrainTransform:
     """
-    学習用の画像前処理クラス。
-    modeに応じて内部パイプラインを切り替える。
-    __call__ は常に NumPy (H, W, C) を受け取る。
+    学習用の画像前処理クラス（辞書対応版）。
+    sample(dict) を受け取り、シーケンス内の各画像に前処理を適用する。
     """
     def __init__(self, height=120, width=160, mode='numpy'):
         self.mode = mode
@@ -136,22 +135,38 @@ class TrainTransform:
         else:
             raise ValueError(f"無効なモードです: {mode}。'numpy', 'tensor', 'pil' のいずれかを選択してください。")
 
-    def __call__(self, img_np):
-        # datasetは常に NumPy (H, W, C) を渡す
+    def __call__(self, sample: dict) -> dict:
+        # sample['image'] は (seq_len, H, W, C) の uint8 NumPy 配列
+        img_seq_np = sample["image"]
+        
+        transformed_imgs = []
+
         if self.mode == 'tensor':
-            # 'tensor' (v2) モードのみ、(C, H, W) uint8 テンソルに変換してから渡す
-            # .copy() は、NumPy配列が書き込み不可の場合があるため安全策として追加
-            img_tensor = torch.from_numpy(img_np.copy()).permute(2, 0, 1)
-            return self.transform(img_tensor)
-        else:
-            # 'numpy' と 'pil' モードは NumPy (H, W, C) をそのまま渡す
-            return self.transform(img_np)
+            # v2 transform は (C, H, W) の uint8 Tensor を期待する
+            # Augmentation (Jitter, Flip) をシーケンス内の各画像で独立に行うため、ループ処理する
+            for i in range(img_seq_np.shape[0]):
+                img_np_hwc = img_seq_np[i] # (H, W, C) [uint8 numpy]
+                img_tensor_chw = torch.from_numpy(img_np_hwc.copy()).permute(2, 0, 1) # (C, H, W) [uint8 tensor]
+                transformed_imgs.append(self.transform(img_tensor_chw))
+            
+        elif self.mode == 'numpy' or self.mode == 'pil':
+            # numpy / pil transform は (H, W, C) の uint8 NumPy 配列を期待する
+            for i in range(img_seq_np.shape[0]):
+                img_np_hwc = img_seq_np[i] # (H, W, C) [uint8 numpy]
+                transformed_imgs.append(self.transform(img_np_hwc)) # (C, H, W) [float32 tensor]
+
+        # 最後にスタックして (seq_len, C, H, W) の Tensor にする
+        sample["image"] = torch.stack(transformed_imgs)
+        
+        # (注：RandomHorizontalFlip を使用する場合、
+        #  フリップしたフレームに対応する 'steer' の符号も反転させる処理が別途必要です)
+
+        return sample
 
 
 class TestTransform:
     """
-    検証・テスト用の画像前処理クラス。
-    modeに応じて内部パイプラインを切り替える。
+    検証・テスト用の画像前処理クラス（辞書対応版）。
     """
     def __init__(self, height=120, width=160, mode='numpy'):
         self.mode = mode
@@ -167,9 +182,27 @@ class TestTransform:
         else:
             raise ValueError(f"無効なモードです: {mode}。'numpy', 'tensor', 'pil' のいずれかを選択してください。")
 
-    def __call__(self, img_np):
+    def __call__(self, sample: dict) -> dict:
+        # sample['image'] は (seq_len, H, W, C) の uint8 NumPy 配列
+        img_seq_np = sample["image"]
+        
+        transformed_imgs = []
+
         if self.mode == 'tensor':
-            img_tensor = torch.from_numpy(img_np.copy()).permute(2, 0, 1)
-            return self.transform(img_tensor)
-        else:
-            return self.transform(img_np)
+            # v2 transform は (C, H, W) または (B, C, H, W) を受け取る
+            # Test時は Augmentation がないため、バッチ処理 (seq_len を バッチ次元として扱う) で高速化
+            
+            # (seq_len, H, W, C) [uint8 numpy] -> (seq_len, C, H, W) [uint8 tensor]
+            img_seq_tensor = torch.from_numpy(img_seq_np.copy()).permute(0, 3, 1, 2)
+            
+            # v2.Compose が (seq_len, C, H, W) を一括処理
+            sample["image"] = self.transform(img_seq_tensor)
+
+        elif self.mode == 'numpy' or self.mode == 'pil':
+            # numpy / pil transform は (H, W, C) の uint8 NumPy 配列を期待する
+            for img_np_hwc in img_seq_np:
+                transformed_imgs.append(self.transform(img_np_hwc))
+            
+            sample["image"] = torch.stack(transformed_imgs)
+        
+        return sample
