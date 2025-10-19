@@ -10,11 +10,14 @@ from tqdm import tqdm
 import time  
 import os 
 
+# analyze.py が src ディレクトリと同じ階層にあるか、
+# PYTHONPATHに src を追加している必要があります。
 from src.data.dataset import MultiSequenceDataset   
 from src.data.transform import TestTransform
 from src.model.trajcontrolnet import TrajControlFormer
 
 def transform_global_to_local(ref_pose_7d: np.ndarray, target_poses_7d: np.ndarray) -> np.ndarray:
+    """ 基準姿勢から見たターゲット姿勢のローカル座標(x, y)を計算する """
     ref_position = ref_pose_7d[:3]
     ref_quat = ref_pose_7d[3:]
     target_positions = target_poses_7d[:, :3]
@@ -32,13 +35,45 @@ def draw_bev_pred_vs_gt(
     
     canvas = np.zeros((canvas_size[1], canvas_size[0], 3), dtype=np.uint8)
     robot_origin_u = canvas_size[0]//2
-    robot_origin_v = canvas_size[1]-50
+    robot_origin_v = canvas_size[1]-50 # 描画原点を少し手前に
 
+    # グリッド（目盛り）の描画
+    grid_color = (40, 40, 40) # 目立たないグレー
+    grid_spacing_m = 1.0 # 1メートルごとにグリッド
+    grid_spacing_px = int(grid_spacing_m * pixels_per_meter)
+
+    # 水平線 (X軸方向、前方)
+    for i in range(1, 10): 
+        v = robot_origin_v - (i * grid_spacing_px)
+        if v < 0: break
+        cv2.line(canvas, (0, v), (canvas_size[0]-1, v), grid_color, 1)
+        cv2.putText(canvas, f"{i}m", (robot_origin_u + 5, v + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.4, grid_color, 1)
+
+    # 垂直線 (Y軸方向、左右)
+    for i in range(1, 10):
+        # 左側 (Y > 0)
+        u_left = robot_origin_u - (i * grid_spacing_px)
+        if u_left > 0:
+            cv2.line(canvas, (u_left, 0), (u_left, canvas_size[1]-1), grid_color, 1)
+            cv2.putText(canvas, f"{i}m", (u_left + 5, robot_origin_v - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, grid_color, 1)
+        # 右側 (Y < 0)
+        u_right = robot_origin_u + (i * grid_spacing_px)
+        if u_right < canvas_size[0]:
+            cv2.line(canvas, (u_right, 0), (u_right, canvas_size[1]-1), grid_color, 1)
+            cv2.putText(canvas, f"{-i}m", (u_right + 5, robot_origin_v - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, grid_color, 1)
+            
+    # X軸 (v方向, Y=0)
+    cv2.line(canvas, (robot_origin_u, 0), (robot_origin_u, canvas_size[1]-1), grid_color, 1)
+    # Y軸 (u方向, X=0)
+    cv2.line(canvas, (0, robot_origin_v), (canvas_size[0]-1, robot_origin_v), grid_color, 1)
+
+    # ロボットの描画
     robot_points = np.array([[robot_origin_u, robot_origin_v],
                              [robot_origin_u-10, robot_origin_v+15],
                              [robot_origin_u+10, robot_origin_v+15]])
     cv2.fillPoly(canvas, [robot_points], (255,255,255))
 
+    # 過去軌跡
     if past_odom_global is not None and len(past_odom_global) > 1:
         current_pose_7d = past_odom_global[-1, :7]
         past_path_local = transform_global_to_local(current_pose_7d, past_odom_global[:, :7])
@@ -53,6 +88,7 @@ def draw_bev_pred_vs_gt(
                 cv2.line(canvas, (prev_u, prev_v), (u,v), color, 2)
             cv2.circle(canvas, (u,v), 3, color, -1)
 
+    # GT未来軌跡
     gt_color = (255, 255, 255)
     for i, (x,y,vx) in enumerate(gt_future_local):
         u = int(robot_origin_u - y*pixels_per_meter)
@@ -64,11 +100,12 @@ def draw_bev_pred_vs_gt(
             cv2.line(canvas, (prev_u,prev_v), (u,v), gt_color, 2)
         cv2.circle(canvas,(u,v), 3, gt_color, -1)
 
+    # Pred未来軌跡
     for i, (x,y,vx) in enumerate(pred_future_local):
         u = int(robot_origin_u - y*pixels_per_meter)
         v = int(robot_origin_v - x*pixels_per_meter)
         speed_ratio = min(vx/max_speed_ms,1.0)
-        color = (0,int(255*(1-speed_ratio)),int(255*speed_ratio))
+        color = (0,int(255*(1-speed_ratio)),int(255*speed_ratio)) # 速度で色付け
         if i>0:
             prev_x, prev_y, _ = pred_future_local[i-1]
             prev_u = int(robot_origin_u - prev_y*pixels_per_meter)
@@ -76,9 +113,34 @@ def draw_bev_pred_vs_gt(
             cv2.line(canvas, (prev_u,prev_v), (u,v), color, 2)
         cv2.circle(canvas,(u,v), 3, color, -1)
 
+    # 凡例
     cv2.putText(canvas, "Pred Future",(10,25),cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,255,0),2)
     cv2.putText(canvas, "GT Future",(10,50),cv2.FONT_HERSHEY_SIMPLEX,0.7,(255,255,255),2)
     cv2.putText(canvas, "Past Odom",(10,75),cv2.FONT_HERSHEY_SIMPLEX,0.7,(255,128,0),2)
+
+    # --- ⬇️ ここから追加 (終点座標の描画) ⬇️ ---
+    text_origin_x = canvas_size[0] - 160 # 右端からの描画開始位置
+    text_origin_y = canvas_size[1] - 60 # 下端からの描画開始位置
+    line_height = 20
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.5
+
+    cv2.putText(canvas, "Endpoint (X, Y) [m]", (text_origin_x, text_origin_y), font, font_scale, (255,255,255), 1)
+
+    # GT 終点座標
+    if len(gt_future_local) > 0:
+        gt_end_x = gt_future_local[-1, 0]
+        gt_end_y = gt_future_local[-1, 1]
+        gt_text = f"GT:   ({gt_end_x: >5.2f}, {gt_end_y: >5.2f})"
+        cv2.putText(canvas, gt_text, (text_origin_x, text_origin_y + line_height), font, font_scale, (255, 255, 255), 1)
+
+    # Pred 終点座標
+    if len(pred_future_local) > 0:
+        pred_end_x = pred_future_local[-1, 0]
+        pred_end_y = pred_future_local[-1, 1]
+        pred_text = f"Pred: ({pred_end_x: >5.2f}, {pred_end_y: >5.2f})"
+        cv2.putText(canvas, pred_text, (text_origin_x, text_origin_y + line_height * 2), font, font_scale, (0, 255, 0), 1)
+    # --- ⬆️ ここまで追加 ⬆️ ---
 
     return canvas
 
@@ -87,54 +149,80 @@ def draw_commands_panel(
     gt_cmds: np.ndarray,
     canvas_size: tuple[int, int] = (400, 400),
     max_steer_rad: float = 0.6,
-    max_speed_ms: float = 2.0
+    max_speed_ms: float = 2.0,
+    steps_to_draw: int = 5 
 ) -> np.ndarray:
     
     canvas = np.zeros((canvas_size[1], canvas_size[0], 3), dtype=np.uint8)
-    num_cmds = len(pred_cmds)
+    
+    # 描画するステップ数を制限
+    num_cmds = min(len(pred_cmds), steps_to_draw) 
+    
     if num_cmds == 0:
         return canvas
 
-    cv2.putText(canvas, "Steer (Pred/GT)", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+    cv2.putText(canvas, f"Steer (Pred/GT) [First {num_cmds} steps]", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+    
     bar_width_total = (canvas_size[0] // 2) * 0.8
     bar_width = int(bar_width_total / num_cmds)
     bar_spacing = 0
     if num_cmds > 1:
-        bar_spacing = int(((canvas_size[0] // 2) * 0.2) / (num_cmds - 1))
-    
+        bar_spacing = int(((canvas_size[0] // 2) * 0.1) / (num_cmds - 1))
+        
     start_offset = (canvas_size[0] // 2 - (bar_width * num_cmds + bar_spacing * (num_cmds - 1))) // 2
 
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.4
+    font_color_pred = (0, 255, 0)
+    font_color_gt = (220, 220, 220)
+
+    # --- Steer ---
+    v_center = canvas_size[1] // 2
     for i in range(num_cmds):
         u_start = start_offset + (bar_width + bar_spacing) * i
         u_end = u_start + bar_width
-        v_center = canvas_size[1] // 2
+        u_center = u_start + bar_width // 2 
 
-        gt_steer_ratio = np.clip(gt_cmds[i, 0] / max_steer_rad, -1.0, 1.0)
-        gt_bar_height = int(gt_steer_ratio * (canvas_size[1] / 2 * 0.8))
+        # GT Steer
+        gt_steer_val = gt_cmds[i, 0]
+        gt_steer_ratio = np.clip(gt_steer_val / max_steer_rad, -1.0, 1.0)
+        gt_bar_height = int(gt_steer_ratio * (canvas_size[1] / 2 * 0.7))
         cv2.rectangle(canvas, (u_start, v_center), (u_end, v_center - gt_bar_height), (255, 255, 255), 1)
+        cv2.putText(canvas, f"{gt_steer_val:.2f}", (u_center - 12, v_center - gt_bar_height - 15), font, font_scale, font_color_gt, 1)
 
-        pred_steer_ratio = np.clip(pred_cmds[i, 0] / max_steer_rad, -1.0, 1.0)
-        pred_bar_height = int(pred_steer_ratio * (canvas_size[1] / 2 * 0.8))
-        pred_color = (0, 200, 0) if pred_steer_ratio <= 0 else (0, 0, 200)
+        # Pred Steer
+        pred_steer_val = pred_cmds[i, 0]
+        pred_steer_ratio = np.clip(pred_steer_val / max_steer_rad, -1.0, 1.0)
+        pred_bar_height = int(pred_steer_ratio * (canvas_size[1] / 2 * 0.7))
+        pred_color = (0, 200, 0) if pred_steer_ratio <= 0 else (0, 0, 200) # 左右で色分け
         cv2.rectangle(canvas, (u_start, v_center), (u_end, v_center - pred_bar_height), pred_color, -1)
+        cv2.putText(canvas, f"{pred_steer_val:.2f}", (u_center - 12, v_center - pred_bar_height - 5), font, font_scale, font_color_pred, 1)
         
     cv2.line(canvas, (0, v_center), (canvas_size[0] // 2, v_center), (255, 255, 255), 1)
 
-    cv2.putText(canvas, "Speed (Pred/GT)", (canvas_size[0] // 2 + 10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    speed_base_v = canvas_size[1] - 20
+    # --- Speed ---
+    cv2.putText(canvas, f"Speed (Pred/GT) [First {num_cmds} steps]", (canvas_size[0] // 2 + 10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    speed_base_v = canvas_size[1] - 50 # ベースラインを上げる
     start_offset_speed = (canvas_size[0] // 2) + start_offset
 
     for i in range(num_cmds):
         u_start = start_offset_speed + (bar_width + bar_spacing) * i
         u_end = u_start + bar_width
+        u_center = u_start + bar_width // 2
 
-        gt_speed_ratio = np.clip(gt_cmds[i, 1] / max_speed_ms, 0.0, 1.0)
-        gt_bar_height = int(gt_speed_ratio * (canvas_size[1] * 0.8))
+        # GT Speed
+        gt_speed_val = gt_cmds[i, 1]
+        gt_speed_ratio = np.clip(gt_speed_val / max_speed_ms, 0.0, 1.0)
+        gt_bar_height = int(gt_speed_ratio * (canvas_size[1] * 0.6)) 
         cv2.rectangle(canvas, (u_start, speed_base_v), (u_end, speed_base_v - gt_bar_height), (255, 255, 255), 1)
+        cv2.putText(canvas, f"{gt_speed_val:.2f}", (u_center - 12, speed_base_v - gt_bar_height - 15), font, font_scale, font_color_gt, 1)
 
-        pred_speed_ratio = np.clip(pred_cmds[i, 1] / max_speed_ms, 0.0, 1.0)
-        pred_bar_height = int(pred_speed_ratio * (canvas_size[1] * 0.8))
+        # Pred Speed
+        pred_speed_val = pred_cmds[i, 1]
+        pred_speed_ratio = np.clip(pred_speed_val / max_speed_ms, 0.0, 1.0)
+        pred_bar_height = int(pred_speed_ratio * (canvas_size[1] * 0.6))
         cv2.rectangle(canvas, (u_start, speed_base_v), (u_end, speed_base_v - pred_bar_height), (0, 255, 0), -1)
+        cv2.putText(canvas, f"{pred_speed_val:.2f}", (u_center - 12, speed_base_v - pred_bar_height - 5), font, font_scale, font_color_pred, 1)
 
     cv2.line(canvas, (canvas_size[0] // 2, speed_base_v), (canvas_size[0], speed_base_v), (255, 255, 255), 1)
 
@@ -168,11 +256,11 @@ def main(cfg: DictConfig) -> None:
     dataset = MultiSequenceDataset(base_dir=dataset_dir, transform=transform, sequence_indices=select_sequences)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=cfg.training.num_workers)
 
+    # Note: TrajControlFormerの引数がconfigと一致しているか確認してください
     model = TrajControlFormer(
         history_len=cfg.dataset.past_len,
         future_len=cfg.dataset.future_len,
         
-        # --- YAML/configキーとクラス引数名を統一 ---
         odom_features=cfg.model.odom_features,
         image_embedding_dim=cfg.model.image_embedding_dim,
         motion_embedding_dim=cfg.model.motion_embedding_dim,
@@ -264,6 +352,12 @@ def main(cfg: DictConfig) -> None:
     print(f"   Visualizing BEV: {draw_bev}, Visualizing CMD: {draw_cmd}")
     inference_times = []
 
+    # 設定ファイルから可視化パラメータを取得
+    pixels_per_meter = cfg.analysis.get("pixels_per_meter", 50)
+    max_steer_rad = cfg.analysis.get("max_steer_rad", 0.6)
+    max_speed_ms = cfg.analysis.get("max_speed_ms", 2.0)
+    cmd_steps_to_draw = cfg.analysis.get("cmd_steps_to_draw", 5)
+
     for idx, batch in enumerate(tqdm(loader, desc="Inference")):
         image = batch['image'].to(device)
         past_odoms = batch['past_odoms'].to(device)
@@ -306,11 +400,24 @@ def main(cfg: DictConfig) -> None:
         panels_to_combine = [resized_img]
 
         if draw_bev:
-            bev_canvas = draw_bev_pred_vs_gt(pred_future, gt_future, past_odom_np, (base_w, base_h))
+            bev_canvas = draw_bev_pred_vs_gt(
+                pred_future, 
+                gt_future, 
+                past_odom_np, 
+                (base_w, base_h),
+                pixels_per_meter=pixels_per_meter
+            )
             panels_to_combine.append(bev_canvas)
 
         if draw_cmd:
-            cmd_canvas = draw_commands_panel(pred_cmd, gt_cmd, (base_w, base_h))
+            cmd_canvas = draw_commands_panel(
+                pred_cmd, 
+                gt_cmd, 
+                (base_w, base_h),
+                max_steer_rad=max_steer_rad,
+                max_speed_ms=max_speed_ms,
+                steps_to_draw=cmd_steps_to_draw
+            )
             panels_to_combine.append(cmd_canvas)
 
         combined = np.hstack(panels_to_combine)

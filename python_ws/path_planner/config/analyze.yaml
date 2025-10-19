@@ -47,8 +47,18 @@ model:
   control_num_layers: 2
 
 analysis:
-  select_sequences: [0]  
-# --- Hydra (ここですべての出力先が決まる) ---
+  select_sequences: [0] 
+  
+  # BEVの解像度 (ピクセル/メートル)
+  pixels_per_meter: 50
+  
+  # コマンドの最大値 (データセットや正規化に合わせる)
+  max_steer_rad: 0.6 
+  max_speed_ms: 2.0  
+  
+  # コマンドパネルに描画する未来ステップ数
+  cmd_steps_to_draw: 5
+
 hydra:
   run:
     dir: ./outputs/analyze/${now:%Y-%m-%d}/${now:%H-%M-%S}
