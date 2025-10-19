@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     # フィルタの種類: "average", "median", "none" から選択
-    filter_type: "average"
+    filter_type: "none"
     # 移動平均/中央値フィルタのウィンドウサイズ
     window_size: 5
     # スケール/クリップフィルタを有効にするか

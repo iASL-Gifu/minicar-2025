@@ -1,0 +1,184 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="input_image_topic" default="/realsense2_camera/color/image_raw" />
+    <arg name="input_camera_info_topic" default="/realsense2_camera/color/camera_info" />
+    <arg name="output_cmd_topic" default="/ackermann_cmd_raw" />
+    <arg name="output_filtered_control_cmd" default="/ackermann_cmd"/>
+    <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models/" />
+    <arg name="model_name" default="pilotnet" />
+
+    <arg name="triton_input_tensor_names" default="['input_1']" />
+    <arg name="triton_output_tensor_names" default="['output_1']" />
+    
+    <arg name="encoder_output_tensor_name" default="input_1" />
+    <arg name="decoder_input_tensor_name" default="output_1" />
+
+    <arg name="container_name" default="localization_container" />
+
+    <arg name="network_image_width" default="160" />
+    <arg name="network_image_height" default="120" />
+    <arg name="original_image_width" default="640" />
+    <arg name="original_image_height" default="480" />
+
+    <!-- Number of Triton inference nodes -->
+    <arg name="num_triton_nodes" default="3" />
+
+    <!-- ========================================== -->
+    <!-- Encoder Node (共通) -->
+    <!-- ========================================== -->
+    <include file="$(find-pkg-share isaac_ros_dnn_image_encoder)/launch/dnn_image_encoder.launch.py">
+        <arg name="input_image_width" value="$(var original_image_width)" />
+        <arg name="input_image_height" value="$(var original_image_height)" />
+        <arg name="network_image_width" value="$(var network_image_width)" />
+        <arg name="network_image_height" value="$(var network_image_height)" />
+        <arg name="image_input_topic" value="$(var input_image_topic)" />
+        <arg name="camera_info_input_topic" value="$(var input_camera_info_topic)" />
+        <arg name="tensor_output_topic" value="/encoder/tensor_pub" />
+        <arg name="image_mean" value="[0.5, 0.5, 0.5]" />
+        <arg name="image_stddev" value="[0.5, 0.5, 0.5]" />
+        <arg name="enable_padding" value="False" />
+        
+        <arg name="final_tensor_name" value="$(var encoder_output_tensor_name)" />
+        
+        <arg name="attach_to_shared_component_container" value="True" />
+        <arg name="component_container_name" value="$(var container_name)" />
+        <arg name="dnn_image_encoder_namespace" value="pilotnet_encoder" />
+    </include>
+
+    <!-- ========================================== -->
+    <!-- Triton Node 1 -->
+    <!-- ========================================== -->
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="isaac_ros_triton"
+            plugin="nvidia::isaac_ros::dnn_inference::TritonNode"
+            name="triton_pilotnet_node_1">
+            <param name="model_name" value="$(var model_name)" />
+            <param name="model_repository_paths" value="['$(var model_repository_path)']" />
+            
+            <param name="input_tensor_names" value="$(var triton_input_tensor_names)" />
+            <param name="output_tensor_names" value="$(var triton_output_tensor_names)" />
+
+            <param name="input_binding_names" value="['input_1']" />
+            <param name="output_binding_names" value="['output_1']" />
+            
+            <param name="input_tensor_formats" value="['nitros_tensor_list_nchw_rgb_f32']" />
+            <param name="output_tensor_formats" value="['nitros_tensor_list_nhwc_rgb_f32']" />
+
+            <remap from="tensor_pub" to="/encoder/tensor_pub" />
+            <remap from="tensor_sub" to="/pilot_net_1/inference_result" />
+        </composable_node>
+    </load_composable_node>
+
+    <!-- ========================================== -->
+    <!-- Triton Node 2 -->
+    <!-- ========================================== -->
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="isaac_ros_triton"
+            plugin="nvidia::isaac_ros::dnn_inference::TritonNode"
+            name="triton_pilotnet_node_2">
+            <param name="model_name" value="$(var model_name)" />
+            <param name="model_repository_paths" value="['$(var model_repository_path)']" />
+            
+            <param name="input_tensor_names" value="$(var triton_input_tensor_names)" />
+            <param name="output_tensor_names" value="$(var triton_output_tensor_names)" />
+
+            <param name="input_binding_names" value="['input_1']" />
+            <param name="output_binding_names" value="['output_1']" />
+            
+            <param name="input_tensor_formats" value="['nitros_tensor_list_nchw_rgb_f32']" />
+            <param name="output_tensor_formats" value="['nitros_tensor_list_nhwc_rgb_f32']" />
+
+            <remap from="tensor_pub" to="/encoder/tensor_pub" />
+            <remap from="tensor_sub" to="/pilot_net_2/inference_result" />
+        </composable_node>
+    </load_composable_node>
+
+    <!-- ========================================== -->
+    <!-- Triton Node 3 -->
+    <!-- ========================================== -->
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="isaac_ros_triton"
+            plugin="nvidia::isaac_ros::dnn_inference::TritonNode"
+            name="triton_pilotnet_node_3">
+            <param name="model_name" value="$(var model_name)" />
+            <param name="model_repository_paths" value="['$(var model_repository_path)']" />
+            
+            <param name="input_tensor_names" value="$(var triton_input_tensor_names)" />
+            <param name="output_tensor_names" value="$(var triton_output_tensor_names)" />
+
+            <param name="input_binding_names" value="['input_1']" />
+            <param name="output_binding_names" value="['output_1']" />
+            
+            <param name="input_tensor_formats" value="['nitros_tensor_list_nchw_rgb_f32']" />
+            <param name="output_tensor_formats" value="['nitros_tensor_list_nhwc_rgb_f32']" />
+
+            <remap from="tensor_pub" to="/encoder/tensor_pub" />
+            <remap from="tensor_sub" to="/pilot_net_3/inference_result" />
+        </composable_node>
+    </load_composable_node>
+
+    <!-- ========================================== -->
+    <!-- Decoder Node 1 -->
+    <!-- ========================================== -->
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="isaac_ros_e2e_pilot"
+            plugin="nvidia::isaac_ros::pilot_net::PilotNetDecoderNode"
+            name="pilot_net_decoder_node_1">
+            <param from="$(find-pkg-share isaac_ros_e2e_pilot)/config/params.yaml" />
+            
+            <param name="tensor_name" value="$(var decoder_input_tensor_name)" />
+
+            <remap from="/tensor_out" to="/pilot_net_1/inference_result" />
+            <remap from="cmd_ackermann" to="/ackermann_cmd_1" />
+        </composable_node>
+    </load_composable_node>
+
+    <!-- ========================================== -->
+    <!-- Decoder Node 2 -->
+    <!-- ========================================== -->
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="isaac_ros_e2e_pilot"
+            plugin="nvidia::isaac_ros::pilot_net::PilotNetDecoderNode"
+            name="pilot_net_decoder_node_2">
+            <param from="$(find-pkg-share isaac_ros_e2e_pilot)/config/params.yaml" />
+            
+            <param name="tensor_name" value="$(var decoder_input_tensor_name)" />
+
+            <remap from="/tensor_out" to="/pilot_net_2/inference_result" />
+            <remap from="cmd_ackermann" to="/ackermann_cmd_2" />
+        </composable_node>
+    </load_composable_node>
+
+    <!-- ========================================== -->
+    <!-- Decoder Node 3 -->
+    <!-- ========================================== -->
+    <load_composable_node target="$(var container_name)">
+        <composable_node
+            pkg="isaac_ros_e2e_pilot"
+            plugin="nvidia::isaac_ros::pilot_net::PilotNetDecoderNode"
+            name="pilot_net_decoder_node_3">
+            <param from="$(find-pkg-share isaac_ros_e2e_pilot)/config/params.yaml" />
+            
+            <param name="tensor_name" value="$(var decoder_input_tensor_name)" />
+
+            <remap from="/tensor_out" to="/pilot_net_3/inference_result" />
+            <remap from="cmd_ackermann" to="/ackermann_cmd_3" />
+        </composable_node>
+    </load_composable_node>
+
+    <node pkg="control_selector" exec="control_selector_node" name="control_selector_node" output="screen">
+        <param from="$(find-pkg-share control_selector)/config/params.yaml" />
+        <param name="output_topic" value="$(var output_cmd_topic)" />
+    </node>
+
+    <include file="$(find-pkg-share control_filter)/launch/filter.launch.xml">
+        <arg name="control_filter_param" value="$(find-pkg-share control_filter)/config/control_filter.param.yaml" />
+        <arg name="input_raw_control_cmd" value="$(var output_cmd_topic)"/>
+        <arg name="output_filtered_control_cmd" value="$(var output_filtered_control_cmd)"/>
+    </include>
+</launch>
