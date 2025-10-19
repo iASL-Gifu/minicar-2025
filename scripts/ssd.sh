@@ -48,6 +48,9 @@ fi
 echo "✅ ディレクトリ一覧の取得完了。"
 echo "どのディレクトリをSSDにコピーしますか？"
 
+# ★ コピー対象のディレクトリパスを格納する配列
+TARGET_DIRS=()
+
 # select構文で選択肢を表示
 PS3="番号を入力してください (qで終了): "
 options=("全てコピー" "${DIRS[@]}" "quit")
@@ -58,16 +61,20 @@ select choice in "${options[@]}"; do
             exit 0
             ;;
         "全てコピー")
-            SOURCE_DIR="$SOURCE_BASE_DIR"
             echo "✅ 全てのディレクトリをコピー対象とします。"
+            # ★ SOURCE_BASE_DIR 直下の全ディレクトリをコピー対象に追加
+            for dir in "${DIRS[@]}"; do
+                TARGET_DIRS+=("${SOURCE_BASE_DIR}/${dir}")
+            done
             break
             ;;
         "")
             echo "無効な選択です。リストから番号を選んでください。"
             ;;
         *)
-            SOURCE_DIR="${SOURCE_BASE_DIR}/${choice}"
             echo "✅ 「${choice}」をコピー対象とします。"
+            # ★ 選択されたディレクトリをコピー対象に追加
+            TARGET_DIRS+=("${SOURCE_BASE_DIR}/${choice}")
             break
             ;;
     esac
@@ -77,12 +84,21 @@ echo "----------------------------------------"
 # --- 3. 事前チェック ---
 echo "✅ 事前チェックを開始します..."
 
-if [ ! -d "$SOURCE_DIR" ]; then
-    echo "❌ エラー: コピー元ディレクトリ $SOURCE_DIR が存在しません。"
+if [ ${#TARGET_DIRS[@]} -eq 0 ]; then
+    echo "❌ エラー: コピー対象のディレクトリが選択されませんでした。"
     exit 1
 fi
 
-echo "  - コピー元: $SOURCE_DIR"
+# 選択されたコピー対象を一覧表示
+echo "  - コピー対象:"
+for dir in "${TARGET_DIRS[@]}"; do
+    if [ ! -d "$dir" ]; then
+        echo "❌ エラー: コピー元ディレクトリ $dir が存在しません。"
+        exit 1
+    fi
+    echo "    - $dir"
+done
+
 echo "  - デバイス: $DEVICE"
 echo "  - マウント先: $MOUNT_POINT"
 echo "----------------------------------------"
@@ -91,13 +107,11 @@ echo "----------------------------------------"
 # --- 4. マウント処理 ---
 if ! findmnt -M "$MOUNT_POINT" > /dev/null; then
     echo "🔄 $DEVICE はマウントされていません。マウントします..."
-    # ★ 権限が必要なため sudo を追加
     sudo mkdir -p "$MOUNT_POINT"
     if [ $? -ne 0 ]; then
         echo "❌ エラー: マウントポイント $MOUNT_POINT の作成に失敗しました。"
         exit 1
     fi
-    # ★ 権限が必要なため sudo を追加
     sudo mount "$DEVICE" "$MOUNT_POINT"
     if [ $? -ne 0 ]; then
         echo "❌ エラー: マウントに失敗しました。デバイス名が正しいか確認してください。"
@@ -112,35 +126,36 @@ echo "----------------------------------------"
 
 # --- 5. データ転送処理 ---
 DEST_DIR="${MOUNT_POINT}/${DEST_SUBDIR}"
-
-echo "🔄 データの転送を開始します..."
-echo "  - From: $SOURCE_DIR"
-echo "  - To:   $DEST_DIR"
-
-# ★ マウント先にディレクトリを作成するには権限が必要なため sudo を追加
 sudo mkdir -p "$DEST_DIR"
 
-# rsync を実行。コピー元ディレクトリの末尾に / を付けることで、ディレクトリの中身だけをコピーする
-# ★ マウント先への書き込みには権限が必要なため sudo を追加
-sudo rsync -avh --progress "$SOURCE_DIR/" "$DEST_DIR"
+echo "🔄 データの転送を開始します..."
+echo "  - To:   $DEST_DIR"
 
-if [ $? -ne 0 ]; then
-    echo "❌ エラー: データ転送に失敗しました。"
-    echo "ディスクの空き容量や権限を確認してください。"
-    echo "安全のため、アンマウントせずにスクリプトを終了します。"
-    exit 1
-fi
+# ★ 選択された各ディレクトリをループでコピー
+for source_path in "${TARGET_DIRS[@]}"; do
+    echo ""
+    echo "▶️  コピー中: $(basename "$source_path")"
+    # ★★★ rsync のソースパス末尾の "/" を削除 ★★★
+    # これにより、ディレクトリ自体がコピー先に作成される
+    sudo rsync -avh --progress "$source_path" "$DEST_DIR"
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ エラー: 「$(basename "$source_path")」のデータ転送に失敗しました。"
+        echo "ディスクの空き容量や権限を確認してください。"
+        echo "安全のため、アンマウントせずにスクリプトを終了します。"
+        exit 1
+    fi
+done
 
-echo "✅ データ転送が完了しました。"
+echo ""
+echo "✅ 全てのデータ転送が完了しました。"
 echo "----------------------------------------"
 
 
 # --- 6. アンマウント処理 ---
 echo "🔄 アンマウント処理を開始します..."
 echo "  - データを同期中 (sync)..."
-# ★ 念のため sync も sudo で実行
 sudo sync
-# ★ 権限が必要なため sudo を追加
 sudo umount "$MOUNT_POINT"
 
 if [ $? -ne 0 ]; then
