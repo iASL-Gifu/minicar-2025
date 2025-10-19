@@ -26,7 +26,7 @@ def get_kinematic_loss(predicted_trajectory, accel_weight=1.0, jerk_weight=1.0):
 
 
 # =========================================================
-# 学習1エポック
+# 学習1エポック (Scheduled Sampling 対応)
 # =========================================================
 def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer, device, cfg, mode):
     model.train()
@@ -38,6 +38,9 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
         model.trajformer.train()
     elif mode == 'path_follow':
         model.control_net.train()
+        # path_followモードでは、予測パスを生成するために
+        # TrajFormer を評価モード (eval) に設定する
+        model.trajformer.eval() 
 
     for batch in tqdm(dataloader, desc=f"Training ({mode})"):
         images = batch['image'].to(device)
@@ -54,6 +57,7 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
             loss = (cfg.training.loss_weights.traj * loss_traj) + \
                    (cfg.training.loss_weights.cmd * loss_cmd) + \
                    (cfg.training.loss_weights.smooth * loss_smooth)
+        
         elif mode == 'path_generation':
             predicted_traj = model.trajformer(images, past_odoms)
             loss_traj = criterion_traj(predicted_traj, future_path)
@@ -61,11 +65,36 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
             loss_cmd = torch.tensor(0.0, device=device)
             loss = (cfg.training.loss_weights.traj * loss_traj) + \
                    (cfg.training.loss_weights.smooth * loss_smooth)
+
         elif mode == 'path_follow':
-            predicted_cmd = model.control_net(future_path)
+            # Hydraコンフィグから「正解パスを使う確率」を取得 (デフォルトは 1.0)
+            use_gt_prob = cfg.training.get('scheduled_sampling_prob', 1.0)
+            
+            input_path_for_control = None # ControlNetへの入力を保持する変数
+
+            if torch.rand(1).item() < use_gt_prob:
+                # --- 1. [確率 use_gt_prob] 正解パス (future_path) を使用 ---
+                input_path_for_control = future_path
+                
+                # 予測パスを計算していないため、Traj関連の損失は 0
+                loss_traj = torch.tensor(0.0, device=device)
+                loss_smooth = torch.tensor(0.0, device=device)
+            
+            else:
+                # --- 2. [確率 1 - use_gt_prob] 予測パス (predicted_traj) を使用 ---
+                with torch.no_grad(): # TrajFormerの勾配は計算しない
+                    input_path_for_control = model.trajformer(images, past_odoms)
+                
+                # 参考値としてTrajLossも計算 (ControlNetの損失には含めない)
+                # .item()で集計するためにテンソルとして保持
+                loss_traj = criterion_traj(input_path_for_control, future_path)
+                loss_smooth = get_kinematic_loss(input_path_for_control)
+
+            # --- 共通: 決定された入力パスで ControlNet を学習 ---
+            predicted_cmd = model.control_net(input_path_for_control)
             loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
-            loss_traj = torch.tensor(0.0, device=device)
-            loss_smooth = torch.tensor(0.0, device=device)
+            
+            # ControlNetの学習が目的なので、損失は loss_cmd のみ
             loss = cfg.training.loss_weights.cmd * loss_cmd
 
         loss.backward()
@@ -85,10 +114,10 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
 
 
 # =========================================================
-# 検証1エポック 
+# 検証1エポック (変更なし)
 # =========================================================
 def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device, cfg, mode):
-    model.eval()
+    model.eval() # model全体を eval に設定
     total_loss, total_traj_loss, total_cmd_loss, total_smooth_loss = 0.0, 0.0, 0.0, 0.0
     with torch.no_grad():
         for batch in tqdm(dataloader, desc=f"Validation ({mode})"):
@@ -113,12 +142,19 @@ def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device,
                 loss = (cfg.training.loss_weights.traj * loss_traj) + \
                        (cfg.training.loss_weights.smooth * loss_smooth)
             elif mode == 'path_follow':
-                predicted_cmd = model.control_net(future_path)
-                loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
-                loss_traj = torch.tensor(0.0, device=device)
-                loss_smooth = torch.tensor(0.0, device=device)
-                loss = cfg.training.loss_weights.cmd * loss_cmd
+                # 検証時はTrajFormerの予測パスを使ってControlNetを評価
+                predicted_traj = model.trajformer(images, past_odoms)
+                predicted_cmd = model.control_net(predicted_traj)
 
+                loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
+                loss_traj = criterion_traj(predicted_traj, future_path)
+                loss_smooth = get_kinematic_loss(predicted_traj)
+                
+                # 全損失をモニタリング
+                loss = (cfg.training.loss_weights.traj * loss_traj) + \
+                       (cfg.training.loss_weights.cmd * loss_cmd) + \
+                       (cfg.training.loss_weights.smooth * loss_smooth)
+                
             total_loss += loss.item()
             total_traj_loss += loss_traj.item()
             total_cmd_loss += loss_cmd.item()
@@ -147,6 +183,10 @@ def main(cfg: DictConfig) -> None:
     if mode not in ['all', 'path_generation', 'path_follow']:
         raise ValueError(f"Invalid training.mode: {mode}. Must be one of 'all', 'path_generation', 'path_follow'.")
     print(f"Running in mode: {mode}")
+    
+    if mode == 'path_follow':
+        prob = cfg.training.get('scheduled_sampling_prob', 1.0)
+        print(f"   Scheduled Sampling enabled (GT path prob = {prob * 100:.1f}%)")
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -205,51 +245,16 @@ def main(cfg: DictConfig) -> None:
 
 
     # =========================================================
-    # ▼▼▼▼▼▼ 重み読み込みロジックの変更 ▼▼▼▼▼▼
+    # ▼▼▼▼▼▼ 重み読み込みロジック (★修正版★) ▼▼▼▼▼▼
     # =========================================================
     
-    # 優先度1: 学習全体を再開する (resume_ckpt_path)
-    resume_ckpt_path = cfg.get('resume_ckpt_path', None)
-    
-    # 優先度2: 個別モジュールの重みを読み込む (load_weights)
+    # 優先度1: 個別モジュールの重みを読み込む (load_weights)
+    # path_followモードでもtrajformerをロードするため、こちらを先に行う
     load_weights_cfg = cfg.get('load_weights', None) 
+    
+    loaded_traj = False # TrajFormerがロードされたかのフラグ
 
-    loaded_from_resume = False # resume_ckpt_path からロードしたかどうかのフラグ
-
-    # 優先度1: resume_ckpt_path の処理
-    if resume_ckpt_path:
-        resume_ckpt_path_abs = hydra.utils.to_absolute_path(resume_ckpt_path)
-        if os.path.exists(resume_ckpt_path_abs):
-            print(f"🔄 [Resume] Loading weights from: {resume_ckpt_path_abs}")
-            try:
-                weights = torch.load(resume_ckpt_path_abs, map_location=device)
-                
-                if mode == 'all':
-                    print(f"   Loading weights into 'model' (Mode: {mode})")
-                    model.load_state_dict(weights)
-                elif mode == 'path_generation':
-                    print(f"   Loading weights into 'model.trajformer' (Mode: {mode})")
-                    model.trajformer.load_state_dict(weights)
-                elif mode == 'path_follow':
-                    print(f"   Loading weights into 'model.control_net' (Mode: {mode})")
-                    model.control_net.load_state_dict(weights)
-                
-                print("→ [Resume] Weights loaded successfully.")
-                loaded_from_resume = True # ロード成功フラグ
-
-            except RuntimeError as e:
-                print(f"⚠️ [Resume] Failed to load weights (Key mismatch?): {e}")
-                print(f"   Ensure checkpoint matches training mode ('{mode}').")
-                print("→ Starting training from scratch (or checking individual weights).")
-            except Exception as e:
-                print(f"⚠️ [Resume] Failed to load weights (Other error): {e}")
-                print("→ Starting training from scratch (or checking individual weights).")
-        else:
-            print(f"⚠️ [Resume] Checkpoint path specified but not found: {resume_ckpt_path_abs}")
-            print("→ Starting training from scratch (or checking individual weights).")
-
-    # 優先度2: resume_ckpt_path がない場合、load_weights の処理を試みる
-    if not loaded_from_resume and load_weights_cfg:
+    if load_weights_cfg:
         print("🔄 [Load Weights] Checking for individual module weights...")
         
         traj_path = load_weights_cfg.get('trajformer_path', None)
@@ -263,10 +268,10 @@ def main(cfg: DictConfig) -> None:
             if os.path.exists(traj_path_abs):
                 try:
                     weights = torch.load(traj_path_abs, map_location=device)
-                    # strict=False : TrajFormerの重みのみをロードし、ControlNetのキーがなくてもエラーにしない
                     model.trajformer.load_state_dict(weights, strict=True) 
                     print(f"   ✅ Loaded 'model.trajformer' from: {traj_path_abs}")
                     loaded_individual = True
+                    loaded_traj = True # ★フラグON★
                 except Exception as e:
                     print(f"   ⚠️ Failed to load 'model.trajformer' from {traj_path_abs}: {e}")
             else:
@@ -278,7 +283,6 @@ def main(cfg: DictConfig) -> None:
             if os.path.exists(ctrl_path_abs):
                 try:
                     weights = torch.load(ctrl_path_abs, map_location=device)
-                    # strict=False : ControlNetの重みのみをロードし、TrajFormerのキーがなくてもエラーにしない
                     model.control_net.load_state_dict(weights, strict=True) 
                     print(f"   ✅ Loaded 'model.control_net' from: {ctrl_path_abs}")
                     loaded_individual = True
@@ -286,19 +290,71 @@ def main(cfg: DictConfig) -> None:
                     print(f"   ⚠️ Failed to load 'model.control_net' from {ctrl_path_abs}: {e}")
             else:
                 print(f"   ⚠️ 'controlnet_path' specified but not found: {ctrl_path_abs}")
+        
+        if loaded_individual:
+            print("→ [Load Weights] Finished loading individual weights.")
+        else:
+            print("→ [Load Weights] No valid individual weights found or specified.")
 
-        if not loaded_individual:
-             print("→ [Load Weights] No valid individual weights found or specified.")
+
+    # 優先度2: 学習全体を再開する (resume_ckpt_path)
+    # (load_weightsでロードした重みを上書きする可能性がある)
+    resume_ckpt_path = cfg.get('resume_ckpt_path', None)
+    
+    if resume_ckpt_path:
+        resume_ckpt_path_abs = hydra.utils.to_absolute_path(resume_ckpt_path)
+        if os.path.exists(resume_ckpt_path_abs):
+            print(f"🔄 [Resume] Loading weights from: {resume_ckpt_path_abs}")
+            print(f"   This will OVERWRITE any weights loaded from 'load_weights' for the current mode ('{mode}').")
+            try:
+                weights = torch.load(resume_ckpt_path_abs, map_location=device)
+                
+                if mode == 'all':
+                    print(f"   Loading weights into 'model' (Mode: {mode})")
+                    model.load_state_dict(weights)
+                    loaded_traj = True # 'all' は当然ロード済み
+                elif mode == 'path_generation':
+                    print(f"   Loading weights into 'model.trajformer' (Mode: {mode})")
+                    model.trajformer.load_state_dict(weights)
+                    loaded_traj = True # 'path_generation' もロード済み
+                elif mode == 'path_follow':
+                    print(f"   Loading weights into 'model.control_net' (Mode: {mode})")
+                    model.control_net.load_state_dict(weights)
+                    # (control_netのみロード。loaded_trajフラグは変更しない)
+                
+                print("→ [Resume] Weights loaded successfully.")
+
+            except RuntimeError as e:
+                print(f"⚠️ [Resume] Failed to load weights (Key mismatch?): {e}")
+                print(f"   Ensure checkpoint matches training mode ('{mode}').")
+            except Exception as e:
+                print(f"⚠️ [Resume] Failed to load weights (Other error): {e}")
+        else:
+            print(f"⚠️ [Resume] Checkpoint path specified but not found: {resume_ckpt_path_abs}")
+    
+    else:
+        # resumeが指定されなかった場合、スクラッチかどうかを判定
+        if not load_weights_cfg or not loaded_individual:
              print(f"🚀 Starting training from scratch (Mode: {mode}).")
         else:
-            print(f"→ [Load Weights] Finished loading individual weights. Starting training (Mode: {mode}).")
+             print(f"🚀 Starting training from pre-loaded weights (Mode: {mode}).")
 
-    # 優先度3: どちらも指定されていない場合（スクラッチ）
-    elif not loaded_from_resume:
-        print(f"🚀 Starting training from scratch (Mode: {mode}).")
-    
+    # --- Scheduled Sampling のための警告 ---
+    use_gt_prob = cfg.training.get('scheduled_sampling_prob', 1.0)
+    if mode == 'path_follow' and use_gt_prob < 1.0:
+        if not loaded_traj:
+             print(f"")
+             print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+             print(f" 'path_follow' mode is running with Scheduled Sampling (prob < 1.0),")
+             print(f" but 'load_weights.trajformer_path' was NOT specified or found.")
+             print(f" → ControlNet will be trained using paths from an UNTRAINED TrajFormer.")
+             print(f" → This is likely NOT what you want.")
+             print(f" → Please specify a pre-trained 'trajformer_path' in 'load_weights'.")
+             print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+             print(f"")
+
     # =========================================================
-    # ▲▲▲▲▲▲ 重み読み込みロジックの変更 終了 ▲▲▲▲▲▲
+    # ▲▲▲▲▲▲ 重み読み込みロジック (★修正版★) 終了 ▲▲▲▲▲▲
     # =========================================================
 
 

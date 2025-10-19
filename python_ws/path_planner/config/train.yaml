@@ -27,6 +27,12 @@ training:
   learning_rate: 0.0003
   num_workers: 8
 
+  # 'path_follow' モード時に正解パス(Ground Truth)を使用する確率
+  # 1.0 = 常に正解パス (元の動作)
+  # 0.8 = 80%は正解パス, 20%は予測パス
+  # 0.0 = 常に予測パス
+  scheduled_sampling_prob: 0.6
+
   # --- 損失の重み (各モードで必要なものだけが使われます) ---
   loss_weights:
     traj: 1.0     
