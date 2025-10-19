@@ -2,7 +2,8 @@
 
 # --- 設定項目 ---
 readonly REMOTE_USER="tamiya"
-readonly REMOTE_BASE_DIR="/home/tamiya/workspace/minicar-2025/ros2_ws/record"
+# 重みファイルが保存されているリモートの親ディレクトリ
+readonly REMOTE_BASE_DIR="/home/tamiya/workspace/minicar-2025/python_ws/ckpts"
 # -----------------
 
 # --- 1. リモートホストの選択 ---
@@ -46,8 +47,8 @@ echo "----------------------------------------"
 
 # --- 2. ローカル保存先パスの決定 ---
 # スクリプトの第1引数 ($1) が指定されていればそれを使い、
-# 指定されていなければデフォルト値 ($HOME/rosbag) を使います。
-readonly LOCAL_DEST_DIR="${1:-$HOME/rosbag}"
+# 指定されていなければデフォルト値 ($HOME/ckpts) を使います。
+readonly LOCAL_DEST_DIR="${1:-$HOME/ckpts}"
 
 # ローカルの保存先ディレクトリが存在しない場合は作成します。
 mkdir -p "$LOCAL_DEST_DIR"
@@ -55,19 +56,15 @@ echo "✅ ローカル保存先: $LOCAL_DEST_DIR"
 echo "----------------------------------------"
 
 
-# --- 3. リモートディレクトリ一覧の取得 ---
-echo "⏳ リモート ($REMOTE_ADDRESS) からディレクトリ一覧を取得中..."
+# --- 3. リモートのモデルディレクトリ一覧の取得 ---
+echo "⏳ リモート ($REMOTE_ADDRESS) からモデルディレクトリ一覧を取得中..."
+echo "  (対象: $REMOTE_BASE_DIR)"
 
 # ssh経由でfindコマンドを実行し、指定ディレクトリ直下にあるディレクトリ名だけを取得します。
-#   -mindepth 1: REMOTE_BASE_DIR 自身を除外
-#   -maxdepth 1: 孫ディレクトリ以降を除外
-#   -type d    : ディレクトリのみを対象
-#   -printf '%f\n': ディレクトリ名だけを出力
 REMOTE_DIRS_CMD="find \"$REMOTE_BASE_DIR\" -mindepth 1 -maxdepth 1 -type d -printf '%f\n'"
 
-# sshコマンドの実行結果を `DIRS` という配列に格納します。
-# `mapfile` は `readarray` とも呼ばれ、標準入力を配列に読み込みます。
-mapfile -t DIRS < <(ssh "$REMOTE_ADDRESS" "$REMOTE_DIRS_CMD")
+# sshコマンドの実行結果を `MODEL_DIRS` という配列に格納します。
+mapfile -t MODEL_DIRS < <(ssh "$REMOTE_ADDRESS" "$REMOTE_DIRS_CMD")
 
 # ssh接続失敗、またはfindコマンド失敗のチェック
 if [ $? -ne 0 ]; then
@@ -76,21 +73,21 @@ if [ $? -ne 0 ]; then
 fi
 
 # ディレクトリが一つも見つからなかった場合のチェック
-if [ ${#DIRS[@]} -eq 0 ]; then
-    echo "❌ エラー: リモートの $REMOTE_BASE_DIR 内にディレクトリが見つかりませんでした。"
+if [ ${#MODEL_DIRS[@]} -eq 0 ]; then
+    echo "❌ エラー: リモートの $REMOTE_BASE_DIR 内にモデルディレクトリが見つかりませんでした。"
     exit 1
 fi
 
-echo "✅ ディレクトリ一覧の取得完了。"
+echo "✅ モデルディレクトリ一覧の取得完了。"
 echo "----------------------------------------"
 
 
-# --- 4. ディレクトリの選択 ---
-echo "どのディレクトリをコピーしますか？"
+# --- 4. モデルディレクトリの選択 ---
+echo "どのモデルのチェックポイントをコピーしますか？"
 
-# select構文で、取得したディレクトリ一覧と「終了」を選択肢として表示します。
+# select構文で、取得したモデルディレクトリ一覧と「終了」を選択肢として表示します。
 PS3="番号を入力してください (qで終了): "
-select DIR_NAME in "${DIRS[@]}" "quit"; do
+select DIR_NAME in "${MODEL_DIRS[@]}" "quit"; do
     case "$DIR_NAME" in
         "quit")
             # "quit" が選ばれたら終了
@@ -103,7 +100,7 @@ select DIR_NAME in "${DIRS[@]}" "quit"; do
             ;;
         *)
             # 有効なディレクトリが選ばれたらループを抜ける
-            echo "「$DIR_NAME」を選択しました。"
+            echo "✅ モデル「$DIR_NAME」を選択しました。"
             break
             ;;
     esac
@@ -111,21 +108,21 @@ done
 
 
 # --- 5. scp の実行 ---
-# 選択されたディレクトリのフルパスを構築
+# 選択されたモデルディレクトリのフルパスを構築
 readonly REMOTE_SOURCE_PATH="${REMOTE_BASE_DIR}/${DIR_NAME}"
 
 echo "----------------------------------------"
 echo "🔄 コピーを実行します..."
-echo "From: $REMOTE_ADDRESS:$REMOTE_SOURCE_PATH"
-echo "To:   $LOCAL_DEST_DIR"
+echo "   From: $REMOTE_ADDRESS:$REMOTE_SOURCE_PATH"
+echo "   To:   $LOCAL_DEST_DIR"
 echo "----------------------------------------"
 
-# scp -r (recursive) でディレクトリを丸ごとコピーします
 scp -r "$REMOTE_ADDRESS:$REMOTE_SOURCE_PATH" "$LOCAL_DEST_DIR"
 
 # --- 6. 完了メッセージ ---
 if [ $? -eq 0 ]; then
     echo "🎉 コピーが完了しました。"
+    echo "   保存先: $LOCAL_DEST_DIR/$DIR_NAME"
 else
     echo "❌ コピー中にエラーが発生しました。"
 fi
