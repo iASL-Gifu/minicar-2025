@@ -21,9 +21,21 @@ def get_kinematic_loss(predicted_trajectory, accel_weight=1.0, jerk_weight=1.0):
     loss_jerk = torch.mean(torch.norm(jerk, p=2, dim=2))
     return (accel_weight * loss_accel) + (jerk_weight * loss_jerk)
 
+def get_control_smoothness_loss(predicted_cmd, rate_weight=1.0, accel_weight=0.5):
+    """
+    制御コマンド (steer, accel) の時間変化率を罰則化する
+    """
+    control_rate = predicted_cmd[:, 1:, :] - predicted_cmd[:, :-1, :]
+    control_accel = control_rate[:, 1:, :] - control_rate[:, :-1, :]
+    loss_rate = torch.mean(torch.norm(control_rate, p=2, dim=2))
+    loss_accel = torch.mean(torch.norm(control_accel, p=2, dim=2))
+
+    return (rate_weight * loss_rate) + (accel_weight * loss_accel)
+
 
 def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer, device, cfg, mode):
-    total_loss, total_traj_loss, total_cmd_loss, total_smooth_loss = 0.0, 0.0, 0.0, 0.0
+    # (★修正) total_smooth_cmd_loss を追加
+    total_loss, total_traj_loss, total_cmd_loss, total_smooth_loss, total_smooth_cmd_loss = 0.0, 0.0, 0.0, 0.0, 0.0
 
     if mode == 'all':
         model.train()
@@ -45,15 +57,19 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
             loss_traj = criterion_traj(predicted_traj, future_path)
             loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
             loss_smooth = get_kinematic_loss(predicted_traj)
+            loss_smooth_cmd = get_control_smoothness_loss(predicted_cmd)
+            
             loss = (cfg.training.loss_weights.traj * loss_traj) + \
                    (cfg.training.loss_weights.cmd * loss_cmd) + \
-                   (cfg.training.loss_weights.smooth * loss_smooth)
+                   (cfg.training.loss_weights.smooth * loss_smooth) + \
+                   (cfg.training.loss_weights.smooth_cmd * loss_smooth_cmd)
         
         elif mode == 'path_generation':
             predicted_traj = model.trajformer(images, past_odoms)
             loss_traj = criterion_traj(predicted_traj, future_path)
             loss_smooth = get_kinematic_loss(predicted_traj)
             loss_cmd = torch.tensor(0.0, device=device)
+            loss_smooth_cmd = torch.tensor(0.0, device=device) 
             loss = (cfg.training.loss_weights.traj * loss_traj) + \
                    (cfg.training.loss_weights.smooth * loss_smooth)
 
@@ -76,8 +92,10 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
 
             predicted_cmd = model.control_net(input_path_for_control, past_odoms)
             loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
+            loss_smooth_cmd = get_control_smoothness_loss(predicted_cmd)
             
-            loss = cfg.training.loss_weights.cmd * loss_cmd
+            loss = (cfg.training.loss_weights.cmd * loss_cmd) + \
+                   (cfg.training.loss_weights.smooth_cmd * loss_smooth_cmd)
 
         loss.backward()
         optimizer.step()
@@ -85,19 +103,21 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
         total_traj_loss += loss_traj.item()
         total_cmd_loss += loss_cmd.item()
         total_smooth_loss += loss_smooth.item()
+        total_smooth_cmd_loss += loss_smooth_cmd.item()
 
     num_batches = len(dataloader)
     return {
         'total': total_loss / num_batches,
         'traj': total_traj_loss / num_batches,
         'cmd': total_cmd_loss / num_batches,
-        'smooth': total_smooth_loss / num_batches
+        'smooth': total_smooth_loss / num_batches,
+        'smooth_cmd': total_smooth_cmd_loss / num_batches
     }
 
 
 def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device, cfg, mode):
     model.eval()
-    total_loss, total_traj_loss, total_cmd_loss, total_smooth_loss = 0.0, 0.0, 0.0, 0.0
+    total_loss, total_traj_loss, total_cmd_loss, total_smooth_loss, total_smooth_cmd_loss = 0.0, 0.0, 0.0, 0.0, 0.0
     with torch.no_grad():
         for batch in tqdm(dataloader, desc=f"Validation ({mode})"):
             images = batch['image'].to(device)
@@ -110,16 +130,21 @@ def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device,
                 loss_traj = criterion_traj(predicted_traj, future_path)
                 loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
                 loss_smooth = get_kinematic_loss(predicted_traj)
+                loss_smooth_cmd = get_control_smoothness_loss(predicted_cmd) 
                 loss = (cfg.training.loss_weights.traj * loss_traj) + \
                        (cfg.training.loss_weights.cmd * loss_cmd) + \
-                       (cfg.training.loss_weights.smooth * loss_smooth)
+                       (cfg.training.loss_weights.smooth * loss_smooth) + \
+                       (cfg.training.loss_weights.smooth_cmd * loss_smooth_cmd) 
+            
             elif mode == 'path_generation':
                 predicted_traj = model.trajformer(images, past_odoms)
                 loss_traj = criterion_traj(predicted_traj, future_path)
                 loss_smooth = get_kinematic_loss(predicted_traj)
                 loss_cmd = torch.tensor(0.0, device=device)
+                loss_smooth_cmd = torch.tensor(0.0, device=device)
                 loss = (cfg.training.loss_weights.traj * loss_traj) + \
                        (cfg.training.loss_weights.smooth * loss_smooth)
+
             elif mode == 'path_follow':
                 predicted_traj = model.trajformer(images, past_odoms)
                 predicted_cmd = model.control_net(predicted_traj, past_odoms)
@@ -127,22 +152,26 @@ def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device,
                 loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
                 loss_traj = criterion_traj(predicted_traj, future_path)
                 loss_smooth = get_kinematic_loss(predicted_traj)
+                loss_smooth_cmd = get_control_smoothness_loss(predicted_cmd)
                 
                 loss = (cfg.training.loss_weights.traj * loss_traj) + \
                        (cfg.training.loss_weights.cmd * loss_cmd) + \
-                       (cfg.training.loss_weights.smooth * loss_smooth)
+                       (cfg.training.loss_weights.smooth * loss_smooth) + \
+                       (cfg.training.loss_weights.smooth_cmd * loss_smooth_cmd)
                 
             total_loss += loss.item()
             total_traj_loss += loss_traj.item()
             total_cmd_loss += loss_cmd.item()
             total_smooth_loss += loss_smooth.item()
+            total_smooth_cmd_loss += loss_smooth_cmd.item()
 
     num_batches = len(dataloader)
     return {
         'total': total_loss / num_batches,
         'traj': total_traj_loss / num_batches,
         'cmd': total_cmd_loss / num_batches,
-        'smooth': total_smooth_loss / num_batches
+        'smooth': total_smooth_loss / num_batches,
+        'smooth_cmd': total_smooth_cmd_loss / num_batches
     }
 
 
@@ -204,7 +233,6 @@ def main(cfg: DictConfig) -> None:
         print(f"⚠️ Validation dataset not found: {test_path}")
 
     model = TrajControlFormer(
-        # --- TrajFormer ---
         history_len=cfg.dataset.past_len,
         odom_features=cfg.model.odom_dim,
         future_len=cfg.dataset.future_len,
@@ -213,8 +241,6 @@ def main(cfg: DictConfig) -> None:
         transformer_d_model=cfg.model.d_model,
         transformer_nhead=cfg.model.transformer_nhead,
         transformer_num_layers=cfg.model.transformer_num_layers,
-
-        # --- ControlFormer (独立GRU構成) ---
         control_motion_embedding_dim=cfg.model.control_motion_embedding_dim,
         control_d_model=cfg.model.control_d_model,
         control_nhead=cfg.model.control_nhead,
@@ -345,8 +371,10 @@ def main(cfg: DictConfig) -> None:
         writer.add_scalar('Loss/train_traj', train_losses['traj'], epoch)
         writer.add_scalar('Loss/train_cmd', train_losses['cmd'], epoch)
         writer.add_scalar('Loss/train_smooth', train_losses['smooth'], epoch)
+        writer.add_scalar('Loss/train_smooth_cmd', train_losses['smooth_cmd'], epoch)
+        
         print(f"Epoch {epoch+1}/{cfg.training.epochs} | Train Loss: {train_losses['total']:.4f} "
-              f"(Traj: {train_losses['traj']:.4f}, Cmd: {train_losses['cmd']:.4f}, Smooth: {train_losses['smooth']:.4f})")
+              f"(Traj: {train_losses['traj']:.4f}, Cmd: {train_losses['cmd']:.4f}, Smooth: {train_losses['smooth']:.4f}, SmoothCmd: {train_losses['smooth_cmd']:.4f})")
 
         if val_loader is not None:
             val_losses = validate_one_epoch(
@@ -356,8 +384,10 @@ def main(cfg: DictConfig) -> None:
             writer.add_scalar('Loss/val_traj', val_losses['traj'], epoch)
             writer.add_scalar('Loss/val_cmd', val_losses['cmd'], epoch)
             writer.add_scalar('Loss/val_smooth', val_losses['smooth'], epoch)
+            writer.add_scalar('Loss/val_smooth_cmd', val_losses['smooth_cmd'], epoch)
+            
             print(f"→ Validation Loss: {val_losses['total']:.4f} "
-                  f"(Traj: {val_losses['traj']:.4f}, Cmd: {val_losses['cmd']:.4f}, Smooth: {val_losses['smooth']:.4f})")
+                  f"(Traj: {val_losses['traj']:.4f}, Cmd: {val_losses['cmd']:.4f}, Smooth: {val_losses['smooth']:.4f}, SmoothCmd: {val_losses['smooth_cmd']:.4f})")
             current_metric = val_losses['total']
         else:
             current_metric = train_losses['total']

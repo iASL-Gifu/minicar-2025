@@ -36,8 +36,9 @@ training:
   # --- 損失の重み (各モードで必要なものだけが使われます) ---
   loss_weights:
     traj: 1.0     
-    cmd: 0.5      
-    smooth: 0.1
+    cmd: 1.0      
+    smooth: 0.5
+    smooth_cmd: 0.5
 
 # --- モデルのパラメータ ---
 model:
