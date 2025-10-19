@@ -12,7 +12,8 @@
     <arg name="odom_topic" default="/visual_slam/tracking/odometry" />
 
     <arg name="output_path_topic" default="/planned_path" />
-    <arg name="output_cmd_topic" default="/ackermann_cmd" />
+    <arg name="output_cmd_topic" default="/ackermann_cmd_raw" />
+    <arg name="output_filtered_control_cmd" default="/ackermann_cmd"/>
 
     <arg name="image_tensor_topic" default="/encoder/tensor_pub" />
     <arg name="odom_tensor_topic" default="/odom_encoder/tensor_pub" />
@@ -108,5 +109,11 @@
             <remap from="~/control_cmd" to="$(var output_cmd_topic)" />
         </composable_node>
     </load_composable_node>
+
+    <include file="$(find-pkg-share control_filter)/launch/filter.launch.xml">
+        <arg name="control_filter_param" value="$(find-pkg-share control_filter)/config/control_filter.param.yaml" />
+        <arg name="input_raw_control_cmd" value="$(var output_cmd_topic)"/>
+        <arg name="output_filtered_control_cmd" value="$(var output_filtered_control_cmd)"/>
+    </include>
 
 </launch>
