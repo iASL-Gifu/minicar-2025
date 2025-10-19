@@ -32,8 +32,8 @@ def main(args):
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 1. モデルをロード
     model = TrajControlFormer(
+        # --- TrajFormer ---
         history_len=args.past_len,
         odom_features=args.odom_dim,
         future_len=args.future_len,
@@ -41,16 +41,21 @@ def main(args):
         motion_embedding_dim=args.motion_embed_dim,
         transformer_d_model=args.d_model,
         transformer_nhead=args.nhead,
-        transformer_num_layers=args.num_layers
+        transformer_num_layers=args.num_layers,
+        
+        # --- ControlFormer (独立GRU構成) ---
+        control_motion_embedding_dim=args.control_motion_embed_dim,
+        control_d_model=args.control_d_model,
+        control_nhead=args.control_nhead,
+        control_num_layers=args.control_num_layers
     )
+    
     print("✅ Model TrajControlFormer shell created.")
     
-    # 2. 重みをロード (E2Eモデル全体として)
     model.load_state_dict(torch.load(checkpoint_path, map_location='cpu'))
     model.eval()
     print("✅ Loaded full model weights.")
 
-    # 3. ONNXエクスポート用のダミー入力データを作成
     dummy_input_image = torch.randn(1, 3, args.height, args.width)
     dummy_input_odoms = torch.randn(1, args.past_len, args.odom_dim)
     dummy_inputs = (dummy_input_image, dummy_input_odoms)
@@ -65,7 +70,6 @@ def main(args):
         'output_commands': {0: 'batch_size'}
     }
 
-    # 4. ONNXとしてエクスポート
     try:
         print("[INFO] Starting ONNX export (mode: all)...")
         
@@ -109,8 +113,6 @@ if __name__ == '__main__':
         help="Path to save the output ONNX model. (Default: Same directory and basename as checkpoint)"
     )
     
-    # --- モード引数を削除 ---
-
     # --- 入力形状に関する引数 (train.yaml と一致させる) ---
     parser.add_argument(
         '--height', type=int, default=120, help="Image height (Default: 120)"
@@ -127,13 +129,19 @@ if __name__ == '__main__':
     parser.add_argument(
         '--future-len', type=int, default=30, help="Number of future trajectory points (future_len) (Default: 30)"
     )
-
-    # --- モデルアーキテクチャに関する引数 (train.yaml と一致させる) ---
-    parser.add_argument('--image-embed-dim', type=int, default=128, help="Default: 128")
-    parser.add_argument('--motion-embed-dim', type=int, default=64, help="Default: 64")
-    parser.add_argument('--d-model', type=int, default=192, help="Transformer d_model (Default: 192)")
-    parser.add_argument('--nhead', type=int, default=6, help="Transformer nhead (Default: 6)")
-    parser.add_argument('--num-layers', type=int, default=2, help="Transformer num_layers (Default: 2)")
     
+    # --- TrajFormer パラメータ ---
+    parser.add_argument('--image-embed-dim', type=int, default=128, help="TrajFormer: Image Embedding Dim (Default: 128)")
+    parser.add_argument('--motion-embed-dim', type=int, default=64, help="TrajFormer: GRU Embedding Dim (Default: 64)")
+    parser.add_argument('--d-model', type=int, default=192, help="TrajFormer: Transformer d_model (Default: 192)")
+    parser.add_argument('--nhead', type=int, default=6, help="TrajFormer: Transformer nhead (Default: 6)")
+    parser.add_argument('--num-layers', type=int, default=2, help="TrajFormer: Transformer num_layers (Default: 2)")
+    
+    # --- ControlFormer パラメータ ---
+    parser.add_argument('--control-motion-embed-dim', type=int, default=64, help="ControlFormer: GRU Embedding Dim (Default: 64)")
+    parser.add_argument('--control-d-model', type=int, default=64, help="ControlFormer: Transformer d_model (Default: 64)")
+    parser.add_argument('--control-nhead', type=int, default=4, help="ControlFormer: Transformer nhead (Default: 4)")
+    parser.add_argument('--control-num-layers', type=int, default=2, help="ControlFormer: Transformer num_layers (Default: 2)")
+
     args = parser.parse_args()
     main(args)
