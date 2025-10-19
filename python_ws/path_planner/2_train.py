@@ -8,12 +8,15 @@ from pathlib import Path
 import os
 from torch.utils.tensorboard import SummaryWriter
 
-from src.data.dataset import MultiSequenceDataset   
+from src.data.dataset import MultiSequenceDataset
 from src.data.transform import TrainTransform, TestTransform
-from src.model.trajcontrolnet import TrajControlFormer 
+from src.model.trajcontrolnet import TrajControlFormer
 
+# =========================================================
+# 運動学的損失 
+# =========================================================
 def get_kinematic_loss(predicted_trajectory, accel_weight=1.0, jerk_weight=1.0):
-    xy_coords = predicted_trajectory[..., :2] 
+    xy_coords = predicted_trajectory[..., :2]
     velocity = xy_coords[:, 1:, :] - xy_coords[:, :-1, :]
     acceleration = velocity[:, 1:, :] - velocity[:, :-1, :]
     jerk = acceleration[:, 1:, :] - acceleration[:, :-1, :]
@@ -22,12 +25,13 @@ def get_kinematic_loss(predicted_trajectory, accel_weight=1.0, jerk_weight=1.0):
     return (accel_weight * loss_accel) + (jerk_weight * loss_jerk)
 
 
-# --- 学習ループ (mode引数を追加) ---
+# =========================================================
+# 学習1エポック
+# =========================================================
 def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer, device, cfg, mode):
     model.train()
     total_loss, total_traj_loss, total_cmd_loss, total_smooth_loss = 0.0, 0.0, 0.0, 0.0
 
-    # modeに応じてモデルの特定の部分を train() に設定
     if mode == 'all':
         model.train()
     elif mode == 'path_generation':
@@ -42,38 +46,30 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
         future_cmd = batch['future_cmd'].to(device)
 
         optimizer.zero_grad()
-        
-        # --- modeに応じてフォワードパスと損失計算 ---
         if mode == 'all':
             predicted_traj, predicted_cmd = model(images, past_odoms)
             loss_traj = criterion_traj(predicted_traj, future_path)
             loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
             loss_smooth = get_kinematic_loss(predicted_traj)
-            
             loss = (cfg.training.loss_weights.traj * loss_traj) + \
                    (cfg.training.loss_weights.cmd * loss_cmd) + \
                    (cfg.training.loss_weights.smooth * loss_smooth)
-        
         elif mode == 'path_generation':
-            predicted_traj = model.trajformer(images, past_odoms) # TrajFormerのみ実行
+            predicted_traj = model.trajformer(images, past_odoms)
             loss_traj = criterion_traj(predicted_traj, future_path)
             loss_smooth = get_kinematic_loss(predicted_traj)
-            loss_cmd = torch.tensor(0.0, device=device) # ログ用
-            
+            loss_cmd = torch.tensor(0.0, device=device)
             loss = (cfg.training.loss_weights.traj * loss_traj) + \
                    (cfg.training.loss_weights.smooth * loss_smooth)
-        
         elif mode == 'path_follow':
-            predicted_cmd = model.control_net(future_path) 
+            predicted_cmd = model.control_net(future_path)
             loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
-            loss_traj = torch.tensor(0.0, device=device) # ログ用
-            loss_smooth = torch.tensor(0.0, device=device) # ログ用
-            
+            loss_traj = torch.tensor(0.0, device=device)
+            loss_smooth = torch.tensor(0.0, device=device)
             loss = cfg.training.loss_weights.cmd * loss_cmd
 
         loss.backward()
         optimizer.step()
-        
         total_loss += loss.item()
         total_traj_loss += loss_traj.item()
         total_cmd_loss += loss_cmd.item()
@@ -88,11 +84,12 @@ def train_one_epoch(model, dataloader, criterion_traj, criterion_cmd, optimizer,
     }
 
 
-# --- 検証ループ (mode引数を追加) ---
+# =========================================================
+# 検証1エポック 
+# =========================================================
 def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device, cfg, mode):
-    model.eval() 
+    model.eval()
     total_loss, total_traj_loss, total_cmd_loss, total_smooth_loss = 0.0, 0.0, 0.0, 0.0
-    
     with torch.no_grad():
         for batch in tqdm(dataloader, desc=f"Validation ({mode})"):
             images = batch['image'].to(device)
@@ -100,32 +97,26 @@ def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device,
             future_path = batch['future_path'].to(device)
             future_cmd = batch['future_cmd'].to(device)
 
-            # --- modeに応じてフォワードパスと損失計算 ---
             if mode == 'all':
                 predicted_traj, predicted_cmd = model(images, past_odoms)
                 loss_traj = criterion_traj(predicted_traj, future_path)
                 loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
                 loss_smooth = get_kinematic_loss(predicted_traj)
-                
                 loss = (cfg.training.loss_weights.traj * loss_traj) + \
                        (cfg.training.loss_weights.cmd * loss_cmd) + \
                        (cfg.training.loss_weights.smooth * loss_smooth)
-            
             elif mode == 'path_generation':
                 predicted_traj = model.trajformer(images, past_odoms)
                 loss_traj = criterion_traj(predicted_traj, future_path)
                 loss_smooth = get_kinematic_loss(predicted_traj)
                 loss_cmd = torch.tensor(0.0, device=device)
-                
                 loss = (cfg.training.loss_weights.traj * loss_traj) + \
                        (cfg.training.loss_weights.smooth * loss_smooth)
-            
             elif mode == 'path_follow':
-                predicted_cmd = model.control_net(future_path) 
+                predicted_cmd = model.control_net(future_path)
                 loss_cmd = criterion_cmd(predicted_cmd, future_cmd)
                 loss_traj = torch.tensor(0.0, device=device)
                 loss_smooth = torch.tensor(0.0, device=device)
-                
                 loss = cfg.training.loss_weights.cmd * loss_cmd
 
             total_loss += loss.item()
@@ -142,7 +133,9 @@ def validate_one_epoch(model, dataloader, criterion_traj, criterion_cmd, device,
     }
 
 
-# --- メイン ---
+# =========================================================
+# メイン
+# =========================================================
 @hydra.main(config_path="config", config_name="train", version_base="1.2")
 def main(cfg: DictConfig) -> None:
     print("--- Configuration ---")
@@ -199,7 +192,6 @@ def main(cfg: DictConfig) -> None:
         print(f"⚠️ Validation dataset not found: {test_path}")
 
     # --- モデル定義 ---
-    # TrajControlFormerは常に全体をロードする
     model = TrajControlFormer(
         history_len=cfg.dataset.past_len,
         odom_features=cfg.model.odom_dim,
@@ -211,6 +203,45 @@ def main(cfg: DictConfig) -> None:
         transformer_num_layers=cfg.model.transformer_num_layers
     ).to(device)
 
+
+    resume_ckpt_path = cfg.get('resume_ckpt_path', None)
+
+    if resume_ckpt_path:
+        resume_ckpt_path_abs = hydra.utils.to_absolute_path(resume_ckpt_path)
+        if os.path.exists(resume_ckpt_path_abs):
+            print(f"🔄 Loading weights from: {resume_ckpt_path_abs}")
+            try:
+                # 重み（state_dict）を読み込む
+                weights = torch.load(resume_ckpt_path_abs, map_location=device)
+                
+                # modeに応じてロード対象のモジュールを変更
+                if mode == 'all':
+                    print(f"   Loading weights into 'model' (Mode: {mode})")
+                    model.load_state_dict(weights)
+                elif mode == 'path_generation':
+                    print(f"   Loading weights into 'model.trajformer' (Mode: {mode})")
+                    model.trajformer.load_state_dict(weights)
+                elif mode == 'path_follow':
+                    print(f"   Loading weights into 'model.control_net' (Mode: {mode})")
+                    model.control_net.load_state_dict(weights)
+                
+                print("→ Weights loaded successfully.")
+
+            except RuntimeError as e:
+                # キーの不一致（例: mode='all' なのに best_trajformer.pth を指定した）
+                print(f"⚠️ Failed to load weights (Key mismatch?): {e}")
+                print(f"   Ensure checkpoint matches training mode ('{mode}').")
+                print("→ Starting training from scratch.")
+            except Exception as e:
+                # その他のエラー
+                print(f"⚠️ Failed to load weights (Other error): {e}")
+                print("→ Starting training from scratch.")
+        else:
+            print(f"⚠️ Checkpoint path specified but not found: {resume_ckpt_path_abs}")
+            print("→ Starting training from scratch.")
+    else:
+        print(f"🚀 Starting training from scratch (Mode: {mode}).")
+
     criterion_traj = nn.SmoothL1Loss()
     criterion_cmd = nn.SmoothL1Loss()
     
@@ -220,25 +251,20 @@ def main(cfg: DictConfig) -> None:
         print("Optimizing: ALL parameters.")
     elif mode == 'path_generation':
         parameters = model.trajformer.parameters()
-        # 念のため、もう一方をフリーズ
         for param in model.control_net.parameters():
             param.requires_grad = False
         print("Optimizing: ONLY TrajFormer parameters.")
     elif mode == 'path_follow':
         parameters = model.control_net.parameters()
-        # 念のため、もう一方をフリーズ
         for param in model.trajformer.parameters():
             param.requires_grad = False
         print("Optimizing: ONLY ControlFormer parameters.")
-        
     optimizer = torch.optim.Adam(parameters, lr=cfg.training.learning_rate)
 
     best_metric = float('inf')
 
     # --- 学習ループ ---
     for epoch in range(cfg.training.epochs):
-        
-        # modeを渡す
         train_losses = train_one_epoch(
             model, train_loader, criterion_traj, criterion_cmd, optimizer, device, cfg, mode
         )
@@ -246,12 +272,10 @@ def main(cfg: DictConfig) -> None:
         writer.add_scalar('Loss/train_traj', train_losses['traj'], epoch)
         writer.add_scalar('Loss/train_cmd', train_losses['cmd'], epoch)
         writer.add_scalar('Loss/train_smooth', train_losses['smooth'], epoch)
-        
         print(f"Epoch {epoch+1}/{cfg.training.epochs} | Train Loss: {train_losses['total']:.4f} "
               f"(Traj: {train_losses['traj']:.4f}, Cmd: {train_losses['cmd']:.4f}, Smooth: {train_losses['smooth']:.4f})")
 
         if val_loader is not None:
-            # modeを渡す
             val_losses = validate_one_epoch(
                 model, val_loader, criterion_traj, criterion_cmd, device, cfg, mode
             )
@@ -259,10 +283,8 @@ def main(cfg: DictConfig) -> None:
             writer.add_scalar('Loss/val_traj', val_losses['traj'], epoch)
             writer.add_scalar('Loss/val_cmd', val_losses['cmd'], epoch)
             writer.add_scalar('Loss/val_smooth', val_losses['smooth'], epoch)
-            
             print(f"→ Validation Loss: {val_losses['total']:.4f} "
                   f"(Traj: {val_losses['traj']:.4f}, Cmd: {val_losses['cmd']:.4f}, Smooth: {val_losses['smooth']:.4f})")
-            
             current_metric = val_losses['total']
         else:
             current_metric = train_losses['total']
@@ -270,7 +292,6 @@ def main(cfg: DictConfig) -> None:
         # --- modeに応じて保存するファイル名と対象 ---
         if current_metric < best_metric:
             best_metric = current_metric
-            
             if mode == 'all':
                 state_dict = model.state_dict()
                 save_name = 'best_model.pth'
@@ -280,7 +301,6 @@ def main(cfg: DictConfig) -> None:
             elif mode == 'path_follow':
                 state_dict = model.control_net.state_dict()
                 save_name = 'best_controlformer.pth'
-                
             torch.save(state_dict, os.path.join(ckpt_dir, save_name))
             print(f"✨ Improved best model ({save_name} metric={best_metric:.4f}) saved!")
 

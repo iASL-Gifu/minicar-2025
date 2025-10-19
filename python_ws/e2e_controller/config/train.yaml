@@ -6,7 +6,7 @@ dataset:
   sequence_length: 1
   image_height: 120
   image_width: 160
-  transform_mode: "tensor"  # 'numpy'(最速), 'tensor'(高速), 'pil'(低速) から選択
+  transform_mode: "numpy"  # 'numpy'(最速), 'tensor'(高速), 'pil'(低速) から選択
 
 # --- 学習パラメータ ---
 training:
