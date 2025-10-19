@@ -7,12 +7,12 @@
 class AckermannCmdSelectorNode : public rclcpp::Node
 {
 public:
-  AckermannCmdSelectorNode() : Node("ackermann_cmd_selector_node")
+  AckermannCmdSelectorNode() 
+    : Node("ackermann_cmd_selector_node"),
+      last_log_time_(this->now()),
+      log_throttle_duration_(1, 0),  // 1秒 (seconds, nanoseconds)
+      message_count_(0)
   {
-    // ログ頻度制御用の変数を初期化
-    last_log_time_ = this->now();
-    log_throttle_duration_ = rclcpp::Duration::from_seconds(1.0);  // 1秒に1回までログ出力
-    message_count_ = 0;
     // パラメータの宣言
     this->declare_parameter<int>("num_inputs", 3);
     this->declare_parameter<std::string>("input_topic_prefix", "/ackermann_cmd_");
