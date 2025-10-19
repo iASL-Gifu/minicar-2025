@@ -42,20 +42,18 @@ training:
 
 # --- モデルのパラメータ ---
 model:
-  # --- 共通パラメータ ---
-  history_len: 10
-  odom_features: 8      # (ご提示の odom_dim)
-  future_len: 30
+  # --- 共通 ---
+  odom_features: 8              
 
   # --- TrajFormer パラメータ ---
   image_embedding_dim: 128
-  motion_embedding_dim: 64         # TrajFormer用 GRUの次元
-  transformer_d_model: 192         # TrajFormer用 Transformer (ご提示の d_model)
+  motion_embedding_dim: 64
+  transformer_d_model: 192      
   transformer_nhead: 6
   transformer_num_layers: 2
 
-  # --- ControlFormer パラメータ (独立GRU構成) ---
-  control_motion_embedding_dim: 64 # (★) ControlFormer用 GRUの次元
+  # --- ControlFormer パラメータ ---
+  control_motion_embedding_dim: 64
   control_d_model: 64
   control_nhead: 4
   control_num_layers: 2
