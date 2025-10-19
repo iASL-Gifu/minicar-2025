@@ -81,7 +81,7 @@
     # より正確に設定する場合は
     # https://github.com/ethz-asl/kalibr
     # ============================================
-    enable_imu_fusion: false
+    enable_imu_fusion: true
     gyro_noise_density: 0.000244
     gyro_random_walk: 0.000019393
     accel_noise_density: 0.001862
@@ -138,10 +138,10 @@
     # 各記録点には位置・姿勢・画像データが含まれる
     # 多いほど広い範囲を記憶するが、メモリと処理負荷が増える
     # ============================================
-    save_map_folder_path: ""
-    load_map_folder_path: ""
-    # save_map_folder_path: ""
+    # save_map_folder_path: "/workspaces/src/launch/localization_launch/map/e511_v2"
     # load_map_folder_path: ""
+    save_map_folder_path: ""
+    load_map_folder_path: "/workspaces/src/launch/localization_launch/map/e511_v2"
     localize_on_startup: false
     slam_max_map_size: 300
     
@@ -180,7 +180,7 @@
     image_buffer_size: 100
     imu_buffer_size: 50
     image_qos: "DEFAULT"
-    imu_qos: "DEFAULT"
+    imu_qos: "SENSOR_DATA"
     
     # ============================================
     # Output Parameters
@@ -194,9 +194,9 @@
     # ============================================
     # Debug/Visualization Parameters
     # ============================================
-    enable_slam_visualization: false
-    enable_observations_view: false
-    enable_landmarks_view: false
+    enable_slam_visualization: true
+    enable_observations_view: true
+    enable_landmarks_view: true
     path_max_size: 1024
     verbosity: 0
     enable_debug_mode: false
