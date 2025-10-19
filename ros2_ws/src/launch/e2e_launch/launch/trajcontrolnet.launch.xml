@@ -1,0 +1,8 @@
+<launch>
+
+    <include file="$(find-pkg-share isaac_ros_e2e_traj_control)/launch/isaac_ros_e2e_traj_control.launch.xml">
+        <arg name="model_repository_path" value="/workspaces/isaac_ros_assets/models/" />
+        <arg name="model_name" value="trajcontrolnet" />
+    </include>
+
+</launch>

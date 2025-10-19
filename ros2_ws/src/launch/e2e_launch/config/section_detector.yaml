@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    circles: [
+      21.3, 2.3, 3.0,      # section 0
+      20.654, 28.091, 3.0, # section 1
+      18.4, 55.3, 3.0,     # section 2
+      -6.8, 55.8, 3.0,     # section 3
+      -32.3, 52.2, 3.0,    # section 4
+      -32.5, 27.9, 3.0,    # section 5
+      -30.7, 10.2, 3.0,    # section 6
+      -28.5, -1.2, 3.0,    # section 7
+      -3.1, -0.9, 3.0      # section 8
+    ]
+    publish_rate_hz: 2.0       # 2Hz（0.5秒ごと）
