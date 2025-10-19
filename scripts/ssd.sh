@@ -15,11 +15,17 @@ MOUNT_POINT="/mnt/ssd"
 DEST_SUBDIR="rosbag-minicar"
 # ----------------------------------------------------
 
-# スクリプトがroot権限で実行されていない場合、sudoを使って自身を再実行する
-if [ "$EUID" -ne 0 ]; then
-  echo "INFO: root権限が必要です。sudoを使って再実行します..."
-  exec sudo "$0" "$@"
+# --- 0. sudo 権限の事前確認 ---
+echo "ℹ️ このスクリプトは、ディスクのマウントと書き込みのために root 権限（sudo）を必要とします。"
+echo "パスワードの入力を求められる場合があります。"
+sudo -v # sudo の認証タイムスタンプを更新する（必要ならパスワードを尋ねる）
+if [ $? -ne 0 ]; then
+    echo "❌ エラー: sudo 権限の取得に失敗しました。"
+    exit 1
 fi
+echo "✅ sudo 権限を確認しました。"
+echo "----------------------------------------"
+
 
 # --- 1. 物理的な接続の確認 ---
 read -p "❓ SSDドライブをPCに接続しましたか？ (y/n): " confirm
@@ -85,12 +91,14 @@ echo "----------------------------------------"
 # --- 4. マウント処理 ---
 if ! findmnt -M "$MOUNT_POINT" > /dev/null; then
     echo "🔄 $DEVICE はマウントされていません。マウントします..."
-    mkdir -p "$MOUNT_POINT"
+    # ★ 権限が必要なため sudo を追加
+    sudo mkdir -p "$MOUNT_POINT"
     if [ $? -ne 0 ]; then
         echo "❌ エラー: マウントポイント $MOUNT_POINT の作成に失敗しました。"
         exit 1
     fi
-    mount "$DEVICE" "$MOUNT_POINT"
+    # ★ 権限が必要なため sudo を追加
+    sudo mount "$DEVICE" "$MOUNT_POINT"
     if [ $? -ne 0 ]; then
         echo "❌ エラー: マウントに失敗しました。デバイス名が正しいか確認してください。"
         exit 1
@@ -109,10 +117,12 @@ echo "🔄 データの転送を開始します..."
 echo "  - From: $SOURCE_DIR"
 echo "  - To:   $DEST_DIR"
 
-mkdir -p "$DEST_DIR"
+# ★ マウント先にディレクトリを作成するには権限が必要なため sudo を追加
+sudo mkdir -p "$DEST_DIR"
 
 # rsync を実行。コピー元ディレクトリの末尾に / を付けることで、ディレクトリの中身だけをコピーする
-rsync -avh --progress "$SOURCE_DIR/" "$DEST_DIR"
+# ★ マウント先への書き込みには権限が必要なため sudo を追加
+sudo rsync -avh --progress "$SOURCE_DIR/" "$DEST_DIR"
 
 if [ $? -ne 0 ]; then
     echo "❌ エラー: データ転送に失敗しました。"
@@ -128,8 +138,10 @@ echo "----------------------------------------"
 # --- 6. アンマウント処理 ---
 echo "🔄 アンマウント処理を開始します..."
 echo "  - データを同期中 (sync)..."
-sync
-umount "$MOUNT_POINT"
+# ★ 念のため sync も sudo で実行
+sudo sync
+# ★ 権限が必要なため sudo を追加
+sudo umount "$MOUNT_POINT"
 
 if [ $? -ne 0 ]; then
     echo "❌ エラー: アンマウントに失敗しました。何らかのプロセスがビジー状態かもしれません。"
@@ -141,4 +153,3 @@ echo "----------------------------------------"
 echo "🎉 すべての処理が正常に完了しました。"
 
 exit 0
-
