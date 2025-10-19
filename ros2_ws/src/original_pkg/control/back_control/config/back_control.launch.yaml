@@ -1,0 +1,10 @@
+
+ros__parameters:
+  # 制御値設定（バック制御用）
+  throttle_value: -0.3       # スロットル値（負の値でバック）
+  steering_value: 0.0        # ステアリング値（直進）
+  
+  # 実行設定
+  publish_frequency: 10.0    # パブリッシュ周波数 [Hz]
+  enable_on_start: false     # 起動時に有効化するか
+  auto_stop_duration: 3.0    # 自動停止までの時間（バック時は短め）

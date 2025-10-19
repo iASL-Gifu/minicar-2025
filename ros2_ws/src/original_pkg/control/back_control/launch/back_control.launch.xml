@@ -1,0 +1,21 @@
+<launch>
+<!-- パラメータファイルのパス -->
+<arg name="back_control_param" default="$(find-pkg-share back_control)/config/back_control.param.yaml"/>
+
+<!-- 出力トピック名 -->
+<arg name="output_cmd_topic" default="/ackermann_cmd"/>
+
+<!-- Back Control Node -->
+<node pkg="back_control" 
+        exec="back_control_node"
+        name="back_control_node"
+        output="screen">
+    
+    <!-- パラメータファイル読み込み -->
+    <param from="$(var back_control_param)"/>
+    
+    <!-- トピックリマップ -->
+    <remap from="/ackermann_cmd" to="$(var output_cmd_topic)"/>
+    
+</node>
+</launch>
