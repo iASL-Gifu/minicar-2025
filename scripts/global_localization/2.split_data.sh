@@ -94,7 +94,7 @@ echo ""
 # 分割2: pose情報（tf, tf_static, slam_path）
 echo "分割2: ポーズ関連トピックを抽出中..."
 ros2 bag filter -o pose_only/ "$SELECTED_DIR" \
-  -i "/visual_slam/tracking/slam_path" \
+  -i "/visual_slam/tracking/odometry" \
   -s mcap
 
 echo ""

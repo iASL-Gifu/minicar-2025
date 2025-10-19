@@ -4,7 +4,7 @@ WS_PATH=/workspaces
 # ROS 2 環境を読み込み
 source ${WS_PATH}/install/setup.bash
 # 固定値
-POSE_TOPIC_NAME="/visual_slam/tracking/slam_path"
+POSE_TOPIC_NAME="/visual_slam/tracking/odometry"
 # スクリプトのディレクトリを取得
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # カメラ設定ファイルのデフォルトパス

@@ -25,4 +25,4 @@ ros2 bag record -s mcap -o camera_pose \
   /infra2/image_rect_raw_mono \
   /tf_static \
   /tf \
-  /visual_slam/tracking/slam_path
+  /visual_slam/tracking/odometry
