@@ -42,10 +42,10 @@ if [ $? -ne 0 ]; then
   done
 
   # --- 各ペインへ個別コマンドを送信 ---
-  tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME".0 "$CMD_BASE" C-m          # 左上
-  tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME".2 "$CMD_E2E" C-m           # 右上
-  tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME".1 "$CMD_LOCALIZATION" C-m  # 左下
-  tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME".3 "$CMD_BAG" C-m           # 右下
+  tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME".0 "$CMD_BASE"         # 左上
+  tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME".2 "$CMD_E2E"            # 右上
+  tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME".1 "$CMD_LOCALIZATION"   # 左下
+  tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME".3 "$CMD_BAG"            # 右下
 
   # 最終的に左上ペインをアクティブにしておく
   tmux select-pane -t "$SESSION_NAME":"$WINDOW_NAME".0
