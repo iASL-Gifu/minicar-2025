@@ -4,7 +4,8 @@
     <arg name="camera_height" default="480" />
     <arg name="realsense_config_file" default="$(find-pkg-share localization_launch)/config/realsense.yaml" />
     <arg name="vslam_config_file" default="$(find-pkg-share localization_launch)/config/vslam.yaml" />
-    <arg name="vgl_map_dir" default="/workspaces/src/launch/localization_launch/keyframes/20251018_185151" description="Path to VGL map directory"/>
+    <arg name="section_config_file" default="$(find-pkg-share localization_launch)/config/section_detector.yaml" />
+    <arg name="vgl_map_dir" default="/workspaces/src/launch/localization_launch/keyframes/20251019_091225" description="Path to VGL map directory"/>
     <arg name="camera_names" default="front" description="Camera configuration"/>
 
     <node_container pkg="rclcpp_components" exec="component_container_mt" name="localization_container" namespace="">
@@ -52,6 +53,14 @@
     </include>
 
     <node pkg="localization_visualizer" exec="localization_visualizer_node" name="localization_visualizer">
+    </node>
+
+    <node pkg="marker_publisher" exec="marker_publisher_node" name="marker_publisher">
+        <param from="$(var section_config_file)" />
+    </node>
+
+    <node pkg="section_detector" exec="section_detector_node" name="section_detector">
+        <param from="$(var section_config_file)" />
     </node>
 
     <node pkg="tf2_ros" exec="static_transform_publisher"
