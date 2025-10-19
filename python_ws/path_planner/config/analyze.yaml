@@ -2,7 +2,13 @@
 
 # --- パス設定 ---
 data_path: "./datasets/test"  # 分析したいデータセット 
-ckpt_path: "./ckpts/best_model.pth" # 読み込むモデル
+ckpt_path: null # 読み込むモデル
+
+load_weights:
+  # path_generation で学習した重み
+  trajformer_path: null
+  # path_follow で学習した重み
+  controlnet_path: null
 
 # --- モデルのどの部分を読み込むか ---
 # trajformer_only or all
@@ -35,7 +41,7 @@ model:
   control_num_layers: 2
 
 analysis:
-  select_sequences: [1]  
+  select_sequences: [0]  
 # --- Hydra (ここですべての出力先が決まる) ---
 hydra:
   run:

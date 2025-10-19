@@ -112,13 +112,17 @@ def extract_and_save_per_bag(bag_path, output_dir, image_topic, cmd_topic, odom_
 
     print(f'[PID:{pid} SAVE] {bag_name}: {len(synced_images)} samples saved to {out_dir}')
 
-
 def main():
     """
     メイン関数。引数解析、バッグ検索、並列処理の起動を行う。
     """
     parser = argparse.ArgumentParser(description='Extract and synchronize image, command, and odometry data from rosbags.')
-    parser.add_argument('--bags_dir', required=True, help='Path to directory containing rosbag folders (searches recursively)')
+    
+    # [MODIFIED] --bags_dir (再帰) と --seq_dirs (直接) のどちらかを必須とする
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--bags_dir', help='Path to directory containing rosbag folders (searches recursively)')
+    group.add_argument('--seq_dirs', nargs='+', help='List of specific sequence directories to process (non-recursive)')
+
     parser.add_argument('--outdir', required=True, help='Output root directory')
     parser.add_argument('--image_topic', default='/realsense2_camera/color/image_raw', help='Image topic name')
     parser.add_argument('--cmd_topic', default='/jetracer/cmd_drive', help='Command topic name')
@@ -126,30 +130,52 @@ def main():
     parser.add_argument('--workers', type=int, default=None, help='Number of parallel workers. (Default: CPU count - 1, max 8)')
     
     args = parser.parse_args()
-    bags_dir = Path(args.bags_dir).expanduser().resolve()
-
-    # --- 再帰的にrosbagフォルダを探索 ---
+    
+    # --- 処理対象のrosbagディレクトリリストを作成 ---
     bag_dirs = []
-    for p in bags_dir.rglob("metadata.yaml"):
-        if p.is_file():
-            bag_dirs.append(p.parent)
+
+    if args.bags_dir:
+        # [MODE 1: 再帰探索モード]
+        print(f"[INFO] Mode: Recursive search in --bags_dir ({args.bags_dir})")
+        bags_dir_path = Path(args.bags_dir).expanduser().resolve()
+        
+        for p in bags_dir_path.rglob("metadata.yaml"):
+            if p.is_file():
+                bag_dirs.append(p.parent)
+
+        if not bag_dirs:
+            print(f"[ERROR] No valid rosbag directories found in {bags_dir_path}.")
+            if (bags_dir_path / "metadata.yaml").exists():
+                print(f"[INFO] Treating {bags_dir_path} as a single bag directory.")
+                bag_dirs = [bags_dir_path]
+            else:
+                return
+
+    elif args.seq_dirs:
+        # [MODE 2: 直接指定モード]
+        print(f"[INFO] Mode: Direct processing of --seq_dirs ({len(args.seq_dirs)} items)")
+        for seq_path_str in args.seq_dirs:
+            seq_path = Path(seq_path_str).expanduser().resolve()
+            
+            # 指定されたパスが metadata.yaml を持つ有効なrosbagディレクトリかチェック
+            if (seq_path / "metadata.yaml").is_file():
+                bag_dirs.append(seq_path)
+            elif seq_path.is_dir():
+                print(f"[WARN] Skipping {seq_path.name} ({seq_path}): 'metadata.yaml' not found.")
+            else:
+                print(f"[WARN] Skipping {seq_path}: Directory not found.")
 
     if not bag_dirs:
-        print(f"[ERROR] No valid rosbag directories found in {bags_dir}.")
-        print("Usage: --bags_dir should point to a directory *containing or including* bag folders recursively (e.g., 'data/bags/**/metadata.yaml').")
+        print("[ERROR] No valid rosbag directories to process.")
+        return
 
-        if (bags_dir / "metadata.yaml").exists():
-            print(f"[INFO] Treating {bags_dir} as a single bag directory.")
-            bag_dirs = [bags_dir]
-        else:
-            return
-
-    print(f"[INFO] Found {len(bag_dirs)} rosbag directories (recursive search).")
+    print(f"[INFO] Found {len(bag_dirs)} rosbag directories to process.")
 
     # --- 並列処理の準備 ---
     tasks = []
     for bag_path in sorted(bag_dirs):
-        print(f"--- Queuing {bag_path.name} ---")
+        # ★ワーカー関数は bag_path.name を使うため、ネストに関わらずフラットに出力される
+        print(f"--- Queuing {bag_path.name} (from: {bag_path}) ---")
         task_args = (
             bag_path,
             args.outdir,
