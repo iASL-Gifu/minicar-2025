@@ -166,10 +166,10 @@ private:
         double dy = last_y_ - circles_relative_[next_idx].y;
         double distance = std::sqrt(dx * dx + dy * dy);
 
-        RCLCPP_INFO(this->get_logger(),
-            "Current pos: (%.2f, %.2f), Next circle[%zu]: (%.2f, %.2f), radius: %.2f, Distance: %.2f m",
-            last_x_, last_y_, next_idx, circles_relative_[next_idx].x, circles_relative_[next_idx].y,
-            circles_relative_[next_idx].radius, distance);
+        // RCLCPP_INFO(this->get_logger(),
+        //     "Current pos: (%.2f, %.2f), Next circle[%zu]: (%.2f, %.2f), radius: %.2f, Distance: %.2f m",
+        //     last_x_, last_y_, next_idx, circles_relative_[next_idx].x, circles_relative_[next_idx].y,
+        //     circles_relative_[next_idx].radius, distance);
 
         // ===== 次の円を通過したか確認 =====
         if (is_inside_circle(last_x_, last_y_, circles_relative_[next_idx])) {
