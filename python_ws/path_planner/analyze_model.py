@@ -184,7 +184,7 @@ def main(cfg: DictConfig) -> None:
     )
     select_sequences = getattr(cfg.analysis, "select_sequences", None)
 
-    dataset = MultiSequenceDataset(base_dir=dataset_dir, transform=transform, select_sequences=select_sequences)
+    dataset = MultiSequenceDataset(base_dir=dataset_dir, transform=transform, sequence_indices=select_sequences)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=cfg.training.num_workers)
 
     # --- モデル読み込み (TrajControlFormer) ---
