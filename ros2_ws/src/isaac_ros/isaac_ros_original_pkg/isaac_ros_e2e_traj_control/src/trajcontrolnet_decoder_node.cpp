@@ -37,7 +37,7 @@ TrajcontrolnetDecoderNode::TrajcontrolnetDecoderNode(const rclcpp::NodeOptions o
   pub_cmd_{create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("~/control_cmd", 10)},
   trajectory_tensor_name_{declare_parameter<std::string>("trajectory_tensor_name", "output_trajectory")},
   commands_tensor_name_{declare_parameter<std::string>("commands_tensor_name", "output_commands")},
-  path_frame_id_{declare_parameter<std::string>("path_frame_id", "odom")}
+  path_frame_id_{declare_parameter<std::string>("path_frame_id", "odom")},
   command_index_{static_cast<size_t>(declare_parameter<int>("command_index", 0))}
 {}
 
