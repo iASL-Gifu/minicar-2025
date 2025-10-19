@@ -243,11 +243,11 @@ def main():
     parser.add_argument(
         "-o", "--output",
         type=Path,
-        default=Path("./visualizations"),
+        default=Path("./outputs/visualizations"),
         help="Directory to save the visualization images."
     )
     args = parser.parse_args()
-    visualize_and_save_dataset(args.dataset_dir, args.output_save_dir)
+    visualize_and_save_dataset(args.datadir, args.output)
 
 
 if __name__ == "__main__":
