@@ -44,7 +44,8 @@ class TrajControlFormer(nn.Module):
             traj_dim=3,  
             d_model=control_d_model,
             nhead=control_nhead,
-            num_layers=control_num_layers
+            num_layers=control_num_layers,
+            future_len=future_len
         )
 
     def forward(self, image: torch.Tensor, past_odoms: torch.Tensor):
