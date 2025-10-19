@@ -1,5 +1,17 @@
 /**:
   ros__parameters:
     output_dir: "/workspaces/record/"
-    all_topics: true
-    topics: ['/jetracer/cmd_drive']
+    all_topics: false
+    topics: 
+      - /realsense2_camera/color/image_raw
+      - /jetracer/cmd_drive
+      - /visual_slam/tracking/slam_path
+      # - /infra1/image_rect_raw_mono
+      # - /right/camera_info_rect_fixed
+      # - /left/camera_info_rect
+      # - /infra2/image_rect_raw_mono
+      # - /tf_static
+      # - /tf
+      - /camera/imu
+      - /visual_slam/tracking/odometry
+      # - /planned_path
