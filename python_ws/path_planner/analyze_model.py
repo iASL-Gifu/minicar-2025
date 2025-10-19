@@ -8,6 +8,7 @@ from omegaconf import DictConfig, OmegaConf
 from pathlib import Path
 from tqdm import tqdm
 import time  
+import os # os.path.exists を使うために追加
 
 # --- TrajControlFormer をインポート ---
 from src.data.dataset import MultiSequenceDataset   
@@ -82,8 +83,8 @@ def draw_bev_pred_vs_gt(
             cv2.line(canvas, (prev_u,prev_v), (u,v), color, 2)
         cv2.circle(canvas,(u,v), 3, color, -1)
 
-    # 凡例
-    cv2.putText(canvas, "Pred Future",(10,25),cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,255,255),2) # 黄
+    # 凡例 (色を Pred (緑/赤), GT(白), Past(青) に修正)
+    cv2.putText(canvas, "Pred Future",(10,25),cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,255,0),2) # 緑
     cv2.putText(canvas, "GT Future",(10,50),cv2.FONT_HERSHEY_SIMPLEX,0.7,(255,255,255),2) # 白
     cv2.putText(canvas, "Past Odom",(10,75),cv2.FONT_HERSHEY_SIMPLEX,0.7,(255,128,0),2) # 青
 
@@ -171,13 +172,13 @@ def main(cfg: DictConfig) -> None:
 
     # パス設定
     dataset_dir = Path(hydra.utils.to_absolute_path(cfg.data_path))
-    model_ckpt = Path(hydra.utils.to_absolute_path(cfg.ckpt_path))
-
+    # cfg.ckpt_path は単一ロードの場合にのみ使用
+    model_ckpt = cfg.get('ckpt_path', None) 
+    
     output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     save_dir = Path(output_dir)
 
     # --- Dataset ---
-    # configからtransform_modeを削除 (TestTransformはmode引数を持たないため)
     transform = TestTransform(
         height=cfg.dataset.image_height, 
         width=cfg.dataset.image_width
@@ -199,28 +200,101 @@ def main(cfg: DictConfig) -> None:
         transformer_num_layers=cfg.model.transformer_num_layers
     ).to(device)
     
-    if not model_ckpt.exists():
-        print(f"[ERROR] Checkpoint file not found: {model_ckpt}")
-        return
+    
+    # =========================================================
+    # ▼▼▼▼▼▼ 重み読み込みロジックの変更 ▼▼▼▼▼▼
+    # =========================================================
+    
+    # 優先度1: 個別モジュールの重みを読み込む (load_weights)
+    load_weights_cfg = cfg.get('load_weights', None)
+    
+    # 優先度2: 単一のチェックポイントを読み込む (ckpt_path)
+    # model_ckpt は上で定義済み (cfg.get('ckpt_path', None))
 
-    # --- モデル読み込みロジック (load_part に応じる) ---
-    state_dict = torch.load(model_ckpt, map_location=device)
-    if cfg.load_part == 'all':
-        model.load_state_dict(state_dict)
-        print(f"[INFO] Loaded full model weights from: {model_ckpt}")
-    elif cfg.load_part == 'trajformer_only':
-        model.trajformer.load_state_dict(state_dict)
-        print(f"[INFO] Loaded TrajFormer weights into model.trajformer from: {model_ckpt}")
-    elif cfg.load_part == 'control_only':
-        model.control_net.load_state_dict(state_dict)
-        print(f"[INFO] Loaded ControlFormer weights into model.control_net from: {model_ckpt}")
-    else:
-        print(f"[WARN] Unknown cfg.load_part: {cfg.load_part}. Attempting to load full model.")
-        model.load_state_dict(state_dict)
+    loaded_weights = False
+
+    # 優先度1: load_weights の処理
+    if load_weights_cfg:
+        print("🔄 [Load Weights] Checking for individual module weights...")
         
+        traj_path = load_weights_cfg.get('trajformer_path', None)
+        ctrl_path = load_weights_cfg.get('controlnet_path', None)
+        
+        # 1. TrajFormer の重みをロード
+        if traj_path:
+            traj_path_abs = hydra.utils.to_absolute_path(traj_path)
+            if os.path.exists(traj_path_abs):
+                try:
+                    weights = torch.load(traj_path_abs, map_location=device)
+                    model.trajformer.load_state_dict(weights, strict=True)
+                    print(f"   ✅ Loaded 'model.trajformer' from: {traj_path_abs}")
+                    loaded_weights = True
+                except Exception as e:
+                    print(f"   ⚠️ Failed to load 'model.trajformer' from {traj_path_abs}: {e}")
+            else:
+                print(f"   ⚠️ 'trajformer_path' specified but not found: {traj_path_abs}")
+        
+        # 2. ControlNet の重みをロード
+        if ctrl_path:
+            ctrl_path_abs = hydra.utils.to_absolute_path(ctrl_path)
+            if os.path.exists(ctrl_path_abs):
+                try:
+                    weights = torch.load(ctrl_path_abs, map_location=device)
+                    model.control_net.load_state_dict(weights, strict=True)
+                    print(f"   ✅ Loaded 'model.control_net' from: {ctrl_path_abs}")
+                    loaded_weights = True
+                except Exception as e:
+                    print(f"   ⚠️ Failed to load 'model.control_net' from {ctrl_path_abs}: {e}")
+            else:
+                print(f"   ⚠️ 'controlnet_path' specified but not found: {ctrl_path_abs}")
+        
+        if loaded_weights:
+            print(f"→ [Load Weights] Finished loading individual weights.")
+        else:
+            print(f"→ [Load Weights] No valid individual weights found.")
+
+    # 優先度2: load_weights がない場合、ckpt_path (単一) の処理を試みる
+    if not loaded_weights and model_ckpt:
+        model_ckpt_abs = hydra.utils.to_absolute_path(model_ckpt)
+        if not os.path.exists(model_ckpt_abs):
+            print(f"[ERROR] Checkpoint file not found: {model_ckpt_abs}")
+            return
+            
+        print(f"🔄 [Single Ckpt] Loading weights from: {model_ckpt_abs}")
+        state_dict = torch.load(model_ckpt_abs, map_location=device)
+        
+        try:
+            if cfg.load_part == 'all':
+                model.load_state_dict(state_dict)
+                print(f"[INFO] Loaded full model weights (Mode: {cfg.load_part})")
+                loaded_weights = True
+            elif cfg.load_part == 'trajformer_only':
+                model.trajformer.load_state_dict(state_dict)
+                print(f"[INFO] Loaded TrajFormer weights into model.trajformer (Mode: {cfg.load_part})")
+                loaded_weights = True
+            elif cfg.load_part == 'control_only':
+                model.control_net.load_state_dict(state_dict)
+                print(f"[INFO] Loaded ControlFormer weights into model.control_net (Mode: {cfg.load_part})")
+                loaded_weights = True
+            else:
+                print(f"[WARN] Unknown cfg.load_part: {cfg.load_part}. Attempting to load full model.")
+                model.load_state_dict(state_dict)
+                loaded_weights = True
+        except RuntimeError as e:
+             print(f"⚠️ [Single Ckpt] Failed to load weights (Key mismatch?): {e}")
+             print(f"   Ensure checkpoint file matches 'load_part' mode ('{cfg.load_part}').")
+
+    # 優先度3: どちらも指定されていない、またはロードに失敗した場合
+    if not loaded_weights:
+        print("[WARN] No weights were loaded. Running inference with an uninitialized model.")
+
+    # =========================================================
+    # ▲▲▲▲▲▲ 重み読み込みロジックの変更 終了 ▲▲▲▲▲▲
+    # =========================================================
+
     model.eval()
 
-    print(f"[INFO] Running inference and saving {len(dataset)} visualizations to {save_dir}")
+    print(f"[INFO] Running inference (Visualizing: {cfg.load_part}) and saving {len(dataset)} visualizations to {save_dir}")
     inference_times = []
 
     for idx, batch in enumerate(tqdm(loader, desc="Inference")):
@@ -238,6 +312,7 @@ def main(cfg: DictConfig) -> None:
 
         with torch.no_grad():
             # 2つの出力を取得
+            # (cfg.load_part が 'all' でなくても、モデルは両方の出力を計算しようとします)
             pred_future_tensor, pred_cmd_tensor = model(image, past_odoms)
 
         # --- 推論時間計測 終了 ---
@@ -292,7 +367,7 @@ def main(cfg: DictConfig) -> None:
             panels_to_combine.append(bev_canvas)
 
         if cmd_canvas is not None:
-            # もしBEVも存在する場合、CMDのサイズをBEVに合わせる (元コードのロジック踏襲)
+            # もしBEVも存在する場合、CMDのサイズをBEVに合わせる
             if bev_canvas is not None and (cmd_canvas.shape[0] != base_h or cmd_canvas.shape[1] != base_w):
                 resized_cmd = cv2.resize(cmd_canvas, (base_w, base_h))
                 panels_to_combine.append(resized_cmd)
@@ -310,15 +385,27 @@ def main(cfg: DictConfig) -> None:
 
     # --- 計測結果を表示 ---
     if inference_times:
-        avg_time = np.mean(inference_times)
+        # 最初の1つはウォームアップとして除外する (オプション)
+        if len(inference_times) > 1:
+            inference_times_warmup = inference_times[1:]
+        else:
+            inference_times_warmup = inference_times
+            
+        avg_time = np.mean(inference_times_warmup)
         avg_fps = 1.0 / avg_time
         total_time = np.sum(inference_times)
         
         print("\n--- Inference Speed ---")
         print(f"Total samples:   {len(inference_times)}")
-        print(f"Total time:      {total_time:.2f} s")
-        print(f"Avg time/sample: {avg_time * 1000:.2f} ms")
-        print(f"Avg FPS:         {avg_fps:.2f} Hz")
+        if len(inference_times) > 1:
+            print(f"(First sample (warmup): {inference_times[0]*1000:.2f} ms)")
+            print(f"Total time (incl. warmup): {total_time:.2f} s")
+            print(f"Avg time/sample (excl. warmup): {avg_time * 1000:.2f} ms")
+            print(f"Avg FPS (excl. warmup):         {avg_fps:.2f} Hz")
+        else:
+            print(f"Total time:      {total_time:.2f} s")
+            print(f"Avg time/sample: {avg_time * 1000:.2f} ms")
+            print(f"Avg FPS:         {avg_fps:.2f} Hz")
         print("-----------------------")
 
     print(f"[INFO] All visualizations saved to {save_dir}")
