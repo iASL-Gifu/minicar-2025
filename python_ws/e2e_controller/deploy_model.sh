@@ -23,11 +23,11 @@
 
 # === Default arguments ===
 INPUT_ONNX_PATH="" 
-MODEL_NAME="pilotnet"      
+MODEL_NAME=""      # デフォルトを空にし、後でインタラクティブに設定
 HEIGHT="120"
 WIDTH="160"
 INPUT_TENSOR_NAME="input_1"
-CONFIG_FILE="pilotnet_config.pbtxt"
+CONFIG_FILE=""     # デフォルトを空にし、後でインタラクティブに設定
 PRECISION="fp16"
 MAX_BATCH_SIZE="1"
 
@@ -91,19 +91,33 @@ function setup_model() {
   # Copy the Triton configuration file
   # Note: You might need to create different config files for different models
   echo "Copying config.pbtxt to ${output_path}"
+  
   local pkg_share_path=$(ros2 pkg prefix isaac_ros_e2e_pilot --share)
-  cp "${pkg_share_path}/config/${CONFIG_FILE}" \
-    "${output_path}/config.pbtxt"
+  local config_source_path="${pkg_share_path}/config/${CONFIG_FILE}"
+
+  # もし見つからなければ、カレントディレクトリも探す
+  if [[ ! -f "$config_source_path" ]]; then
+    if [[ -f "./${CONFIG_FILE}" ]]; then
+      config_source_path="./${CONFIG_FILE}"
+      echo "ℹ️ ROS 2 package path not found, using config file from current directory."
+    else
+      echo "❌ Error: Config file '${CONFIG_FILE}' not found in ROS 2 package or current directory."
+      exit 1
+    fi
+  fi
+  
+  echo "Using config file from: ${config_source_path}"
+  cp "${config_source_path}" "${output_path}/config.pbtxt"
     
   echo "✅ Completed model setup for ${MODEL_NAME} (version ${version})."
 }
 
 function show_help() {
-  echo "Usage: $0 -i /path/to/model.onnx -m my_model_name [options]"
+  echo "Usage: $0 -i /path/to/model.onnx [options]"
   echo "Options:"
   echo "  -i, --input-onnx        [REQUIRED] Path to the local ONNX model file."
-  echo "  -m, --model-name        [REQUIRED] Name for the model in the model repository."
-  echo "  -c, --config-file       Name of the pbtxt config file in the config dir. (Default: ${CONFIG_FILE})"
+  echo "  -m, --model-name        Name for the model. If omitted, an interactive menu will appear."
+  echo "  -c, --config-file       Name of the pbtxt config file. If omitted, it will be inferred from --model-name."
   echo "  -p, --precision         Precision for TensorRT engine (fp32, fp16, int8). (Default: ${PRECISION})"
   echo "  -b, --max-batch-size    Maximum batch size for the TensorRT engine. (Default: ${MAX_BATCH_SIZE})"
   echo "      --height            Input image height. (Default: ${HEIGHT})"
@@ -111,6 +125,57 @@ function show_help() {
   echo "      --input-name        Name of the input tensor in the ONNX model. (Default: ${INPUT_TENSOR_NAME})"
   echo "  -h, --help              Show this help message."
 }
+
+# --- 新しい関数: インタラクティブなモデル選択 ---
+function select_model_interactive() {
+  echo "--- モデルを選択してください ---"
+  PS3="番号を入力してください: "
+  options=("pilotnet" "pilotnet_540" "pilotnet_race" "手動入力 (Manual Input)" "終了 (Quit)")
+  
+  while true; do
+    select opt in "${options[@]}"; do
+      case $opt in
+        "pilotnet")
+          MODEL_NAME="pilotnet"
+          CONFIG_FILE="pilotnet_config.pbtxt"
+          echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
+          break 2 # whileループを抜ける
+          ;;
+        "pilotnet_540")
+          MODEL_NAME="pilotnet_540"
+          CONFIG_FILE="pilotnet_540_config.pbtxt"
+          echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
+          break 2
+          ;;
+        "pilotnet_race")
+          MODEL_NAME="pilotnet_race"
+          CONFIG_FILE="pilotnet_race_config.pbtxt"
+          echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
+          break 2
+          ;;
+        "手動入力 (Manual Input)")
+          while [[ -z "$MODEL_NAME" ]]; do
+            read -p "モデル名を入力してください: " MODEL_NAME
+          done
+          while [[ -z "$CONFIG_FILE" ]]; do
+            read -p "設定ファイル名 (e.g., my_config.pbtxt) を入力してください: " CONFIG_FILE
+          done
+          echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を入力しました。"
+          break 2
+          ;;
+        "終了 (Quit)")
+          echo "スクリプトを終了します。"
+          exit 0
+          ;;
+        *) 
+          echo "無効な選択です。1-${#options[@]} の番号を選んでください。"
+          break # selectループだけ抜ける (whileは継続)
+          ;;
+      esac
+    done
+  done
+}
+
 
 # --- Main script execution ---
 
@@ -174,9 +239,48 @@ while true; do
     esac
 done
 
+
+if [[ -z "$MODEL_NAME" ]]; then
+  # -m が指定されなかった場合、インタラクティブメニューを起動
+  echo "ℹ️ -m (model-name) が指定されていません。インタラクティブ・メニューを開始します。"
+  select_model_interactive
+else
+  # -m が指定された場合
+  echo "✅ -m $MODEL_NAME が指定されました。"
+  if [[ -z "$CONFIG_FILE" ]]; then
+    # -c が指定されていない場合、MODEL_NAMEから自動マッピング
+    echo "ℹ️ -c (config-file) が未指定のため、モデル名から推測します..."
+    case "$MODEL_NAME" in
+      "pilotnet")
+        CONFIG_FILE="pilotnet_config.pbtxt"
+        ;;
+      "pilotnet_540")
+        CONFIG_FILE="pilotnet_540_config.pbtxt"
+        ;;
+      "pilotnet_race")
+        CONFIG_FILE="pilotnet_race_config.pbtxt"
+        ;;
+      *)
+        echo "⚠️ 既知のモデル名と一致しません。configファイルを手動で入力してください。"
+        while [[ -z "$CONFIG_FILE" ]]; do
+          read -p "設定ファイル名 (e.g., ${MODEL_NAME}_config.pbtxt): " CONFIG_FILE
+        done
+        ;;
+    esac
+    echo "✅ 設定ファイル: $CONFIG_FILE を使用します。"
+  else
+    # -m と -c の両方が指定された場合
+    echo "✅ -c $CONFIG_FILE が指定されました。"
+  fi
+fi
+
+
 # Check if required arguments are provided
-if [[ -z "$INPUT_ONNX_PATH" ]] || [[ -z "$MODEL_NAME" ]]; then
-  echo "❌ Error: --input-onnx and --model-name are required arguments."
+if [[ -z "$INPUT_ONNX_PATH" ]] || [[ -z "$MODEL_NAME" ]] || [[ -z "$CONFIG_FILE" ]]; then
+  echo "❌ Error: 必須項目が不足しています。"
+  echo "  --input-onnx は必須です。"
+  echo "  --model-name (またはインタラクティブ選択) が必要です。"
+  echo "  --config-file (または自動マッピング) が必要です。"
   show_help
   exit 1
 fi
