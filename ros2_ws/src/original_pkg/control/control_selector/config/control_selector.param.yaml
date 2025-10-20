@@ -1,7 +1,15 @@
 /**:
   ros__parameters:
-  # subするackermann_msgsの数
-    num_inputs: 3
-    input_topic_prefix: /ackermann_cmd_
-    output_topic : /ackermann_cmd
-    section_topic: current_section
+    input_topics:
+      race_mode: "/ackermann_cmd_race"
+      540_mode: "/ackermann_cmd_540"
+
+    section_to_mode:
+      0: "race_mode"
+      1: "540_mode"
+      2: "540_mode"
+      3: "540_mode"
+      4: "race_mode"
+
+    output_topic: "/ackermann_cmd"
+    section_topic: "current_section"
