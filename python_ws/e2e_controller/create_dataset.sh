@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# --- 設定 ---
+# --- スクリプト設定 ---
 PREPROCESS_SCRIPT_NAME="1_extract_temporal.py"
-
-# スクリプト自身のディレクトリを取得
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PYTHON_SCRIPT_PATH="${SCRIPT_DIR}/${PREPROCESS_SCRIPT_NAME}"
+PREPROCESS_SCRIPT_PATH="${SCRIPT_DIR}/${PREPROCESS_SCRIPT_NAME}"
 
 # --- 色付け (オプション) ---
 CYAN='\033[0;36m'
@@ -14,19 +12,19 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# --- ヘルプ関数 [MODIFIED] ---
+# --- ヘルプ関数 ---
 show_help() {
     echo "Usage: $0 -b <path> -o <path>"
     echo ""
-    echo "Interactively select sequences and split them into train/test datasets."
+    echo "Interactively select sequences and preprocess them to create train/test datasets."
     echo ""
     echo "Options:"
     echo "  -b, --base_dir   Base directory to search for sequences (recursively)"
-    echo "  -o, --outdir     Output root directory (e.g., ./datasets)"
+    echo "  -o, --outdir     Output root directory for datasets (e.g., ./datasets)"
     echo "  -h, --help       Show this help message"
 }
 
-# --- 引数解析 [MODIFIED] ---
+# --- 引数解析 ---
 BASE_DIR=""
 OUTDIR=""
 
@@ -35,19 +33,17 @@ while [[ $# -gt 0 ]]; do
     case $key in
         -b|--base_dir)
         BASE_DIR="$2"
-        shift # past argument
-        shift # past value
+        shift 2
         ;;
         -o|--outdir)
         OUTDIR="$2"
-        shift # past argument
-        shift # past value
+        shift 2
         ;;
         -h|--help)
         show_help
         exit 0
         ;;
-        *)    # unknown option
+        *)
         echo "Unknown option: $1"
         show_help
         exit 1
@@ -55,16 +51,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# 必須引数のチェック
 if [ -z "$BASE_DIR" ] || [ -z "$OUTDIR" ]; then
-    echo -e "${RED}ERROR: Both -b (or --base_dir) and -o (or --outdir) are required.${NC}"
+    echo -e "${RED}ERROR: Both -b (--base_dir) and -o (--outdir) are required.${NC}"
     show_help
     exit 1
 fi
 
 # Pythonスクリプトの存在チェック
-if [ ! -f "$PYTHON_SCRIPT_PATH" ]; then
-    echo -e "${RED}CRITICAL ERROR: Preprocessing script not found at:${NC}"
-    echo "  $PYTHON_SCRIPT_PATH"
+if [ ! -f "$PREPROCESS_SCRIPT_PATH" ]; then
+    echo -e "${RED}CRITICAL ERROR: Preprocessing script not found at: $PREPROCESS_SCRIPT_PATH${NC}"
     exit 1
 fi
 
@@ -86,7 +82,7 @@ done
 echo -e "----------------------------\n"
 
 # --- 3. 選択関数 ---
-select_sequences_bash() {
+select_sequences() {
     local prompt_message="$1"
     local -n output_array=$2
     
@@ -111,26 +107,29 @@ select_sequences_bash() {
 }
 
 # --- 4. 実行関数 ---
-run_extraction_bash() {
+run_extraction() {
     local output_dir="$1"
-    shift
+    local dataset_name="$2"
+    shift 2
     local seq_paths=("$@")
     
     if [ ${#seq_paths[@]} -eq 0 ]; then
-        echo -e "ℹ️ No sequences selected for $(basename "$output_dir"). Skipping."
-        return
+        echo -e "${YELLOW}ℹ️ No sequences selected for ${dataset_name}. Skipping.${NC}"
+        return 0
     fi
 
     mkdir -p "$output_dir"
-    echo -e "\n🚀 Starting extraction for ${GREEN}$(basename "$output_dir")${NC} dataset..."
+    echo -e "\n🚀 Starting preprocessing for ${GREEN}${dataset_name}${NC} dataset..."
     echo -e "   Outputting to: ${CYAN}$output_dir${NC}"
 
-    python3 "$PYTHON_SCRIPT_PATH" --seq_dirs "${seq_paths[@]}" --outdir "$output_dir"
+    python3 "$PREPROCESS_SCRIPT_PATH" --seq_dirs "${seq_paths[@]}" --outdir "$output_dir"
     
     if [ $? -eq 0 ]; then
-        echo -e "✅ Finished extraction for ${GREEN}$(basename "$output_dir")${NC}."
+        echo -e "✅ Finished preprocessing for ${GREEN}${dataset_name}${NC}."
+        return 0
     else
-        echo -e "${RED}❌ ERROR: Extraction failed for $(basename "$output_dir").${NC}"
+        echo -e "${RED}❌ ERROR: Preprocessing failed for ${dataset_name}.${NC}"
+        return 1
     fi
 }
 
@@ -138,10 +137,14 @@ run_extraction_bash() {
 declare -a train_paths
 declare -a test_paths
 
-select_sequences_bash "Select TRAIN sequences." train_paths
-select_sequences_bash "Select TEST sequences." test_paths
+select_sequences "Select TRAIN sequences." train_paths
+select_sequences "Select TEST sequences." test_paths
 
-run_extraction_bash "$OUTDIR/train" "${train_paths[@]}"
-run_extraction_bash "$OUTDIR/test" "${test_paths[@]}"
+run_extraction "$OUTDIR/train" "TRAIN" "${train_paths[@]}"
+if [ $? -ne 0 ]; then exit 1; fi
 
-echo -e "\n🎉 All tasks finished."
+run_extraction "$OUTDIR/test" "TEST" "${test_paths[@]}"
+if [ $? -ne 0 ]; then exit 1; fi
+
+echo -e "\n🎉 Dataset created successfully at ${CYAN}$OUTDIR${NC}"
+
