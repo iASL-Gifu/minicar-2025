@@ -47,6 +47,7 @@
             <remap from="/visual_slam/camera_info_3" to="rear_right/camera_info_rect" />
             <remap from="/visual_slam/imu" to="camera/imu" />
             <remap from="/visual_slam/initial_pose" to="/visual_localization/pose" />
+            <remap from="/visual_slam/trigger_hint" to="/visual_localization/trigger_localization" />
         </composable_node>
 
     </node_container>
