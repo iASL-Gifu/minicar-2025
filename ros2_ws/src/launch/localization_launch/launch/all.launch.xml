@@ -5,8 +5,10 @@
     <arg name="realsense_config_file" default="$(find-pkg-share localization_launch)/config/realsense.yaml" />
     <arg name="vslam_config_file" default="$(find-pkg-share localization_launch)/config/vslam.yaml" />
     <arg name="section_config_file" default="$(find-pkg-share localization_launch)/config/section_detector.yaml" />
-    <arg name="vgl_map_dir" default="/workspaces/src/launch/localization_launch/keyframes/20251019_091225" description="Path to VGL map directory"/>
     <arg name="camera_names" default="front" description="Camera configuration"/>
+    <arg name="save_map_path" default="" />
+    <arg name="load_map_path" default="" />
+    <arg name="vgl_map_dir" default="" />
     <arg name="debug" default="false" />
 
     <node_container pkg="rclcpp_components" exec="component_container_mt" name="localization_container" namespace="">
@@ -42,6 +44,8 @@
         <!-- Visual SLAM node -->
         <composable_node pkg="isaac_ros_visual_slam" plugin="nvidia::isaac_ros::visual_slam::VisualSlamNode" name="visual_slam_node" namespace="">
             <param from="$(var vslam_config_file)" />
+            <param name="save_map_folder_path" value="$(var save_map_path)" />
+            <param name="load_map_folder_path" value="$(var load_map_path)" />
             <remap from="/visual_slam/image_0" to="left/image_rect_mono" />
             <remap from="/visual_slam/camera_info_0" to="left/camera_info_rect" />
             <remap from="/visual_slam/image_1" to="right/image_rect_mono" />
@@ -52,6 +56,7 @@
             <remap from="/visual_slam/camera_info_3" to="rear_right/camera_info_rect" />
             <remap from="/visual_slam/imu" to="camera/imu" />
             <remap from="/visual_slam/initial_pose" to="/visual_localization/pose" />
+            <remap from="/visual_slam/trigger_hint" to="/visual_localization/trigger_localization" />
         </composable_node>
 
     </node_container>
