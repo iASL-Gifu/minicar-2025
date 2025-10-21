@@ -8,7 +8,7 @@
     enable_accel: true
     enable_gyro: true
     enable_color: true
-    enable_depth: true
+    enable_depth: false
     enable_rgbd: false
     enable_infra1: true
     enable_infra2: true
