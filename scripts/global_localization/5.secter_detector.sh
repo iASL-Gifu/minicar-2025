@@ -30,9 +30,10 @@ echo ""
 echo -e "${GREEN}Select mode:${NC}"
 echo "  1) Record odometry data"
 echo "  2) Plot odometry data"
-echo "  3) Exit"
+echo "  3) Plot and select section points"
+echo "  4) Exit"
 echo ""
-read -p "Enter your choice [1-3]: " choice
+read -p "Enter your choice [1-4]: " choice
 
 case $choice in
     1)
@@ -200,6 +201,107 @@ case $choice in
         ;;
         
     3)
+        echo ""
+        echo -e "${YELLOW}=== Select Map Directory ===${NC}"
+        echo ""
+        
+        # マップディレクトリをリスト表示
+        map_dirs=("$BASE_PATH"/*)
+        
+        if [ ${#map_dirs[@]} -eq 0 ] || [ ! -d "${map_dirs[0]}" ]; then
+            echo -e "${RED}No map directories found in ${BASE_PATH}!${NC}"
+            echo "Please run the logger first (option 1)"
+            exit 1
+        fi
+        
+        # ディレクトリ一覧を表示
+        echo "Available map directories:"
+        echo ""
+        for i in "${!map_dirs[@]}"; do
+            dir="${map_dirs[$i]}"
+            if [ -d "$dir" ]; then
+                dirname=$(basename "$dir")
+                csv_count=$(find "$dir" -maxdepth 1 -name "odometry_path_*.csv" 2>/dev/null | wc -l)
+                echo "  $((i+1))) $dirname (${csv_count} CSV files)"
+            fi
+        done
+        
+        echo ""
+        read -p "Select map directory [1-${#map_dirs[@]}]: " dir_choice
+        
+        # 入力チェック
+        if ! [[ "$dir_choice" =~ ^[0-9]+$ ]] || [ "$dir_choice" -lt 1 ] || [ "$dir_choice" -gt ${#map_dirs[@]} ]; then
+            echo -e "${RED}Invalid selection!${NC}"
+            exit 1
+        fi
+        
+        # 選択されたディレクトリ
+        selected_dir="${map_dirs[$((dir_choice-1))]}"
+        
+        echo ""
+        echo -e "${YELLOW}Available CSV files in $(basename "$selected_dir"):${NC}"
+        echo ""
+        
+        # CSVファイルをリスト表示
+        csv_files=("$selected_dir"/odometry_path_*.csv)
+        
+        if [ ${#csv_files[@]} -eq 0 ] || [ ! -e "${csv_files[0]}" ]; then
+            echo -e "${RED}No CSV files found in this directory!${NC}"
+            exit 1
+        fi
+        
+        # ファイル一覧を表示
+        for i in "${!csv_files[@]}"; do
+            file="${csv_files[$i]}"
+            basename=$(basename "$file")
+            size=$(du -h "$file" | cut -f1)
+            lines=$(wc -l < "$file")
+            points=$((lines - 1))  # ヘッダーを除く
+            echo "  $((i+1))) $basename (${size}, ${points} points)"
+        done
+        
+        echo ""
+        read -p "Select file number [1-${#csv_files[@]}]: " file_choice
+        
+        # 入力チェック
+        if ! [[ "$file_choice" =~ ^[0-9]+$ ]] || [ "$file_choice" -lt 1 ] || [ "$file_choice" -gt ${#csv_files[@]} ]; then
+            echo -e "${RED}Invalid selection!${NC}"
+            exit 1
+        fi
+        
+        # 選択されたファイル
+        selected_file="${csv_files[$((file_choice-1))]}"
+        
+        # 出力ファイル名を生成（入力ファイル名_section.csv）
+        # 例: odometry_path_20250123_120000.csv -> odometry_path_20250123_120000_section.csv
+        input_basename=$(basename "$selected_file" .csv)
+        output_file="${selected_dir}/${input_basename}_section.csv"
+        
+        echo ""
+        echo -e "${YELLOW}Plotting: $(basename "$selected_file")${NC}"
+        echo -e "${YELLOW}Section points will be saved to: $(basename "$output_file")${NC}"
+        echo ""
+        sleep 1
+        
+        # プロッターを実行（出力ファイル名を指定）
+        python3 /scripts/global_localization/plot_odometry_path.py "$selected_file" 10 "$output_file"
+        
+        # 保存されたファイルを確認
+        if [ -f "$output_file" ]; then
+            points=$(wc -l < "$output_file")
+            points=$((points - 1))  # ヘッダーを除く
+            echo ""
+            echo -e "${GREEN}✓ Section points saved successfully!${NC}"
+            echo -e "${GREEN}  File: $(basename "$output_file")${NC}"
+            echo -e "${GREEN}  Location: $selected_dir${NC}"
+            echo -e "${GREEN}  Points: $points${NC}"
+        else
+            echo ""
+            echo -e "${YELLOW}No section points were saved.${NC}"
+        fi
+        ;;
+        
+    4)
         echo ""
         echo -e "${GREEN}Goodbye!${NC}"
         exit 0
