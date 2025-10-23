@@ -130,7 +130,7 @@ function show_help() {
 function select_model_interactive() {
   echo "--- モデルを選択してください ---"
   PS3="番号を入力してください: "
-  options=("pilotnet" "pilotnet_540" "pilotnet_race" "手動入力 (Manual Input)" "終了 (Quit)")
+  options=("pilotnet" "pilotnet_540" "pilotnet_race" "pilotnet_parking" "手動入力 (Manual Input)" "終了 (Quit)")
   
   while true; do
     select opt in "${options[@]}"; do
