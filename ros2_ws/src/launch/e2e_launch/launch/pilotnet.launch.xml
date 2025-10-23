@@ -26,7 +26,7 @@
         <arg name="tensor_output_topic" value="$(var encoder_topic)" />
         </include>
 
-    <include file="$(find-pkg-share YOUR_PACKAGE_NAME)/launch/triton_instance.launch.xml">
+    <include file="$(find-pkg-share e2e_launch)/launch/triton_instance.launch.xml">
         <arg name="instance_name" value="race" />
         
         <arg name="model_name" value="$(var model_name)" /> 
@@ -39,7 +39,7 @@
         <arg name="encoder_output_topic" value="$(var encoder_topic)" />
     </include>
 
-    <include file="$(find-pkg-share YOUR_PACKAGE_NAME)/launch/triton_instance.launch.xml">
+    <include file="$(find-pkg-share e2e_launch)/launch/triton_instance.launch.xml">
         <arg name="instance_name" value="540" />
         <arg name="model_name" value="$(var model_name)" /> <arg name="container_name" value="$(var container_name)" />
         <arg name="model_repository_path" value="$(var model_repository_path)" />
