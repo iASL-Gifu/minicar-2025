@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 
 try:
-    from src.model.pilotnet import PilotNet
+    from src.model.pilotnet import PilotNet, TinyPilotNet
 except ImportError:
     print("="*50)
     print("[ERROR] 'from src.model.pilotnet import PilotNet' が失敗しました。")
@@ -71,6 +71,13 @@ if __name__ == '__main__':
         type=str,
         required=True,
         help="[REQUIRED] Path to the trained model checkpoint (.pth file)."
+    )
+
+    parser.add_argument(
+        '-s', '--size',
+        type=str,   
+        default='normal',
+        help="Input image size. (Default: normal)"
     )
     
     parser.add_argument(
