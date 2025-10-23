@@ -1,9 +1,10 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="instance_name" />
+    <arg name="model_name" />
     
-    <arg name="node_suffix" default="_$(var instance_name)" />
-    <arg name="topic_suffix" default="_$(var instance_name)" />
+    <let name="node_suffix" value="_$(var instance_name)" />
+    <let name="topic_suffix" value="_$(var instance_name)" />
 
     <arg name="container_name" />
     <arg name="model_repository_path" />
@@ -12,7 +13,6 @@
     <arg name="decoder_input_tensor_name" />
     <arg name="encoder_output_topic" />
 
-    <arg name="model_name" />
 
 
     <load_composable_node target="$(var container_name)">
