@@ -252,7 +252,7 @@ if ! cd /workspaces/; then
     echo "エラー: /workspaces/ ディレクトリに移動できませんでした。" >&2
     echo "ビルドをスキップします。" >&2
     exit 1
-fi
+fi # <--- ★★★ 修正: 抜けていた fi を追加 ★★★
 
 # colcon build を実行
 colcon build --symlink-install --packages-select e2e_launch
