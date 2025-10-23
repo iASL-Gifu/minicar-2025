@@ -5,7 +5,6 @@
     <arg name="output_cmd_topic" default="/ackermann_cmd_raw" />
     <arg name="output_filtered_control_cmd" default="/ackermann_cmd"/>
     <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models/" />
-    <arg name="model_name" default="pilotnet" />
 
     <arg name="triton_input_tensor_names" default="['input_1']" />
     <arg name="triton_output_tensor_names" default="['output_1']" />
@@ -28,9 +27,9 @@
 
     <include file="$(find-pkg-share e2e_launch)/launch/triton_instance.launch.xml">
         <arg name="instance_name" value="race" />
-        
-        <arg name="model_name" value="$(var model_name)" /> 
-        
+
+        <arg name="model_name" value="pilotnet_race" />
+
         <arg name="container_name" value="$(var container_name)" />
         <arg name="model_repository_path" value="$(var model_repository_path)" />
         <arg name="triton_input_tensor_names" value="$(var triton_input_tensor_names)" />
@@ -41,7 +40,9 @@
 
     <include file="$(find-pkg-share e2e_launch)/launch/triton_instance.launch.xml">
         <arg name="instance_name" value="540" />
-        <arg name="model_name" value="$(var model_name)" /> <arg name="container_name" value="$(var container_name)" />
+        <arg name="model_name" value="pilotnet_540" /> 
+        
+        <arg name="container_name" value="$(var container_name)" />
         <arg name="model_repository_path" value="$(var model_repository_path)" />
         <arg name="triton_input_tensor_names" value="$(var triton_input_tensor_names)" />
         <arg name="triton_output_tensor_names" value="$(var triton_output_tensor_names)" />
