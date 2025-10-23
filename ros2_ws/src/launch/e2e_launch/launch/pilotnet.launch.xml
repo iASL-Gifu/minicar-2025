@@ -27,7 +27,6 @@
 
     <include file="$(find-pkg-share e2e_launch)/launch/triton_instance.launch.xml">
         <arg name="instance_name" value="race" />
-
         <arg name="model_name" value="pilotnet_race" />
 
         <arg name="container_name" value="$(var container_name)" />
@@ -50,8 +49,17 @@
         <arg name="encoder_output_topic" value="$(var encoder_topic)" />
     </include>
 
-
     <node pkg="control_selector" exec="section_map_node" name="section_map_node" output="screen">
         <param from="$(find-pkg-share control_selector)/config/section_map_node.param.yaml" />
     </node>
+
+    <node pkg="control_selector" exec="control_selector_node" name="control_selector_node" output="screen">
+        <param from="$(find-pkg-share control_selector)/config/control_selector.param.yaml" />
+    </node>
+
+    <include file="$(find-pkg-share control_filter)/launch/filter.launch.xml">
+        <arg name="control_filter_param" value="$(find-pkg-share control_filter)/config/control_filter.param.yaml" />
+        <arg name="input_raw_control_cmd" value="$(var output_cmd_topic)"/>
+        <arg name="output_filtered_control_cmd" value="$(var output_filtered_control_cmd)"/>
+    </include>
     </launch>
