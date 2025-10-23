@@ -8,8 +8,8 @@ SETUP_SCRIPT="source /workspaces/install/setup.bash" # setup.bashへのフルパ
 
 # --- 実行するコマンド群 ---
 CMD_BASE="ros2 launch system_launch base_system.launch.xml"
-CMD_E2E="ros2 launch e2e_launch"
-CMD_LOCALIZATION="ros2 launch localization_launch"
+CMD_E2E="bash /scripts/e2e/run_e2e.sh"
+CMD_LOCALIZATION="bash /scripts/localization.sh"
 CMD_BAG="ros2 launch bag_manager_py bag_manager_node.launch.xml"
 
 # --- セッション名の決定 ---
