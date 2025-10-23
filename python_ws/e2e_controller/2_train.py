@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.data.dataset import MultiSequenceDataset  
 from src.data.transform import TrainTransform, TestTransform
-from src.model.pilotnet import PilotNet
+from src.model.pilotnet import PilotNet, TinyPilotNet
 
 
 # =========================================================
@@ -137,7 +137,11 @@ def main(cfg: DictConfig) -> None:
     # =====================================================
     # モデル・損失関数・オプティマイザ
     # =====================================================
-    model = PilotNet(num_outputs=cfg.model.num_outputs).to(device)
+    model_size = cfg.model.size
+    if model_size == 'tiny':
+        model = TinyPilotNet(num_outputs=cfg.model.num_outputs).to(device)
+    else:
+        model = PilotNet(num_outputs=cfg.model.num_outputs).to(device)
     criterion = nn.SmoothL1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.training.learning_rate)
 
