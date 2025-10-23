@@ -1,15 +1,10 @@
 /**:
   ros__parameters:
+    mode_topic: "/current_mode"
+    output_topic: "/ackermann_cmd_raw"
+    # 起動時のデフォルトモード (0: race_mode, 1: 540_mode)
+    default_mode: 0 
+    # 'input_topics' をモードID (配列インデックス) 順のリストにする
     input_topics:
-      race_mode: "/ackermann_cmd_race"
-      540_mode: "/ackermann_cmd_540"
-
-    section_to_mode:
-      0: "race_mode"
-      1: "540_mode"
-      2: "540_mode"
-      3: "540_mode"
-      4: "race_mode"
-
-    output_topic: "/ackermann_cmd"
-    section_topic: "current_section"
+      - "/ackermann_cmd_race"  # Index 0 (Mode 0)
+      - "/ackermann_cmd_540"  # Index 1 (Mode 1)
