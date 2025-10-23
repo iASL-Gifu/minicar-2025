@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- スクリプト設定 ---
-PREPROCESS_SCRIPT_NAME="1_extract_temporal.py"
+PREPROCESS_SCRIPT_NAME="1_extract_topics_from_bag.py"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PREPROCESS_SCRIPT_PATH="${SCRIPT_DIR}/${PREPROCESS_SCRIPT_NAME}"
 
