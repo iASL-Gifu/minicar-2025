@@ -153,6 +153,12 @@ function select_model_interactive() {
           echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
           break 2
           ;;
+        "pilotnet_parking")
+          MODEL_NAME="pilotnet_parking"
+          CONFIG_FILE="pilotnet_parking_config.pbtxt"
+          echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
+          break 2
+          ;;
         "手動入力 (Manual Input)")
           while [[ -z "$MODEL_NAME" ]]; do
             read -p "モデル名を入力してください: " MODEL_NAME
