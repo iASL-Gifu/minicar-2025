@@ -52,21 +52,51 @@ if [ -z "$DATA_PATH" ]; then
     exit 1
 fi
 
-# Pythonスクリプトの存在チェック
-if [ ! -f "$TRAIN_SCRIPT_PATH" ]; then
-    echo -e "${RED}CRITICAL ERROR: Training script not found at: $TRAIN_SCRIPT_PATH${NC}"
-    exit 1
-fi
 if [ ! -d "$DATA_PATH" ]; then
     echo -e "${RED}ERROR: Dataset directory not found at: $DATA_PATH${NC}"
     exit 1
 fi
 
+# Pythonスクリプトの存在チェック
+if [ ! -f "$TRAIN_SCRIPT_PATH" ]; then
+    echo -e "${RED}CRITICAL ERROR: Training script not found at: $TRAIN_SCRIPT_PATH${NC}"
+    exit 1
+fi
+
+# --- モデルサイズ選択 ---
+echo -e "\n以下からモデルサイズを選択してください:"
+echo "  1) tiny   (実験用・最小構成)"
+echo "  2) small  (軽量構成)"
+echo "  3) normal (標準 / default)"
+echo "  4) large  (高精度構成)"
+read -p "番号を入力してください [1-4] (default: 3): " MODEL_CHOICE
+
+case "$MODEL_CHOICE" in
+    1)
+        MODEL_SIZE="tiny"
+        ;;
+    2)
+        MODEL_SIZE="small"
+        ;;
+    3|"")
+        MODEL_SIZE="normal"
+        ;;
+    4)
+        MODEL_SIZE="large"
+        ;;
+    *)
+        echo -e "${YELLOW}無効な入力のため 'normal' を使用します。${NC}"
+        MODEL_SIZE="normal"
+        ;;
+esac
+
+echo -e "   ✅ model.size = ${CYAN}$MODEL_SIZE${NC}"
+
 # --- 学習実行 ---
 echo -e "\n🚀🚀🚀 Starting training process... 🚀🚀🚀"
 echo -e "   Using dataset path: ${CYAN}$DATA_PATH${NC}"
 
-python3 "$TRAIN_SCRIPT_PATH" data_path="$DATA_PATH"
+python3 "$TRAIN_SCRIPT_PATH" data_path="$DATA_PATH" model.size="$MODEL_SIZE"
 
 if [ $? -eq 0 ]; then
     echo -e "\n🎉🎉🎉 Training finished successfully! 🎉🎉🎉"

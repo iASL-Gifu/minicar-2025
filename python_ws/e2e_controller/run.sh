@@ -81,4 +81,21 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# --- 3. SCP転送するか確認 ---
+echo -e "\n--- ${CYAN}OPTIONAL STEP: SCP Transfer${NC} ---"
+read -p "🌐 SCPで最新のckptを転送しますか？ (y/N): " do_scp
+
+if [[ "$do_scp" == "y" || "$do_scp" == "Y" ]]; then
+    echo -e "${GREEN}🚀 scp.sh を実行します...${NC}"
+    bash ./scp.sh
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ SCP 転送に失敗しました${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ SCP 転送が完了しました${NC}"
+else
+    echo -e "${CYAN}ℹ️ SCP 転送はスキップされました${NC}"
+fi
+
+
 echo -e "\n🎉🎉🎉 ${GREEN}Full pipeline finished successfully!${NC} 🎉🎉🎉"
