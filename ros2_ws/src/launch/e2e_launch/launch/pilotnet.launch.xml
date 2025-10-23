@@ -22,8 +22,23 @@
     <arg name="encoder_topic" default="/encoder/tensor_pub" />
 
     <include file="$(find-pkg-share isaac_ros_dnn_image_encoder)/launch/dnn_image_encoder.launch.py">
-        <arg name="tensor_output_topic" value="$(var encoder_topic)" />
-        </include>
+        <arg name="input_image_width" value="$(var original_image_width)" />
+        <arg name="input_image_height" value="$(var original_image_height)" />
+        <arg name="network_image_width" value="$(var network_image_width)" />
+        <arg name="network_image_height" value="$(var network_image_height)" />
+        <arg name="image_input_topic" value="$(var input_image_topic)" />
+        <arg name="camera_info_input_topic" value="$(var input_camera_info_topic)" />
+        <arg name="tensor_output_topic" value="/encoder/tensor_pub" />
+        <arg name="image_mean" value="[0.5, 0.5, 0.5]" />
+        <arg name="image_stddev" value="[0.5, 0.5, 0.5]" />
+        <arg name="enable_padding" value="False" />
+        
+        <arg name="final_tensor_name" value="$(var encoder_output_tensor_name)" />
+        
+        <arg name="attach_to_shared_component_container" value="True" />
+        <arg name="component_container_name" value="$(var container_name)" />
+        <arg name="dnn_image_encoder_namespace" value="pilotnet_encoder" />
+    </include>
 
     <include file="$(find-pkg-share e2e_launch)/launch/triton_instance.launch.xml">
         <arg name="instance_name" value="race" />
