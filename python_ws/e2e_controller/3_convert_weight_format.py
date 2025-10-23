@@ -35,7 +35,10 @@ def main(args):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 1. モデルをロードし、評価モードにする
-    model = PilotNet(num_outputs=2) # PilotNetは引数が少ないので簡単
+    if args.size == 'tiny':
+        model = TinyPilotNet(num_outputs=2)
+    else:
+        model = PilotNet(num_outputs=2) # PilotNetは引数が少ないので簡単
     model.load_state_dict(torch.load(checkpoint_path, map_location='cpu')) 
     model.eval()
     print("✅ Model loaded successfully.")
