@@ -65,6 +65,14 @@ fi
 echo -e "\n--- ${GREEN}STEP 1 Finished Successfully${NC} ---"
 
 # --- 2. 学習 ---
+# 仮想環境のアクティベート（存在する場合）
+if [ -f ../env/bin/activate ]; then
+    echo -e "📦  Activating virtual environment: ${CYAN}../env/bin/activate${NC}"
+    source ../env/bin/activate
+else
+    echo -e "${YELLOW}⚠️  Virtual environment ../env/bin/activate not found. Continuing without venv.${NC}"
+fi
+
 echo -e "\n--- ${GREEN}STEP 2: Starting Training${NC} ---"
 bash ./train.sh --data_path "$OUTDIR"
 
