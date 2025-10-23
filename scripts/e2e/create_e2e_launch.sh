@@ -193,7 +193,7 @@ cat << 'EOF'
         <arg name="dnn_image_encoder_namespace" value="pilotnet_encoder" />
     </include>
 
-    EOF
+EOF
 
 # --- 5b-2. 動的Tritonインスタンス (変数を展開する) ---
 for instance in "${instance_list[@]}"; do
