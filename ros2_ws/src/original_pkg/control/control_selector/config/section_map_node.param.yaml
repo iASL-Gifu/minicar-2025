@@ -1,0 +1,11 @@
+/**:
+  ros__parameters:
+    section_topic: "/current_section"
+    mode_topic: "/current_mode"
+    
+    section_to_mode_map:
+      - "0:0"  # Section 0 -> Mode 0 (race)
+      - "1:1"  # Section 1 -> Mode 1 (540)
+      - "2:1"  # Section 2 -> Mode 1 (540)
+      - "3:1"  # Section 3 -> Mode 1 (540)
+      - "4:0"  # Section 4 -> Mode 0 (race)
