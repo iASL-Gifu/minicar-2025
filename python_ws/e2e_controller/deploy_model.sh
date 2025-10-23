@@ -260,6 +260,9 @@ else
       "pilotnet_race")
         CONFIG_FILE="pilotnet_race_config.pbtxt"
         ;;
+      "pilotnet_parking")
+        CONFIG_FILE="pilotnet_parking_config.pbtxt"
+        ;;
       *)
         echo "⚠️ 既知のモデル名と一致しません。configファイルを手動で入力してください。"
         while [[ -z "$CONFIG_FILE" ]]; do
