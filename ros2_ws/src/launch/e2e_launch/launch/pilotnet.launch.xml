@@ -1,8 +1,56 @@
+<?xml version="1.0"?>
 <launch>
+    <arg name="input_image_topic" default="/realsense2_camera/color/image_raw" />
+    <arg name="input_camera_info_topic" default="/realsense2_camera/color/camera_info" />
+    <arg name="output_cmd_topic" default="/ackermann_cmd_raw" />
+    <arg name="output_filtered_control_cmd" default="/ackermann_cmd"/>
+    <arg name="model_repository_path" default="/workspaces/isaac_ros_assets/models/" />
+    <arg name="model_name" default="pilotnet" />
+
+    <arg name="triton_input_tensor_names" default="['input_1']" />
+    <arg name="triton_output_tensor_names" default="['output_1']" />
     
-    <include file="$(find-pkg-share isaac_ros_e2e_pilot)/launch/isaac_ros_e2e_pilot.launch.xml">
-        <arg name="model_repository_path" value="/workspaces/isaac_ros_assets/models/" />
-        <arg name="model_name" value="pilotnet" />
+    <arg name="encoder_output_tensor_name" default="input_1" />
+    <arg name="decoder_input_tensor_name" default="output_1" />
+
+    <arg name="container_name" default="localization_container" />
+
+    <arg name="network_image_width" default="160" />
+    <arg name="network_image_height" default="120" />
+    <arg name="original_image_width" default="640" />
+    <arg name="original_image_height" default="480" />
+
+    <arg name="encoder_topic" default="/encoder/tensor_pub" />
+
+    <include file="$(find-pkg-share isaac_ros_dnn_image_encoder)/launch/dnn_image_encoder.launch.py">
+        <arg name="tensor_output_topic" value="$(var encoder_topic)" />
+        </include>
+
+    <include file="$(find-pkg-share YOUR_PACKAGE_NAME)/launch/triton_instance.launch.xml">
+        <arg name="instance_name" value="race" />
+        
+        <arg name="model_name" value="$(var model_name)" /> 
+        
+        <arg name="container_name" value="$(var container_name)" />
+        <arg name="model_repository_path" value="$(var model_repository_path)" />
+        <arg name="triton_input_tensor_names" value="$(var triton_input_tensor_names)" />
+        <arg name="triton_output_tensor_names" value="$(var triton_output_tensor_names)" />
+        <arg name="decoder_input_tensor_name" value="$(var decoder_input_tensor_name)" />
+        <arg name="encoder_output_topic" value="$(var encoder_topic)" />
     </include>
 
-</launch>
+    <include file="$(find-pkg-share YOUR_PACKAGE_NAME)/launch/triton_instance.launch.xml">
+        <arg name="instance_name" value="540" />
+        <arg name="model_name" value="$(var model_name)" /> <arg name="container_name" value="$(var container_name)" />
+        <arg name="model_repository_path" value="$(var model_repository_path)" />
+        <arg name="triton_input_tensor_names" value="$(var triton_input_tensor_names)" />
+        <arg name="triton_output_tensor_names" value="$(var triton_output_tensor_names)" />
+        <arg name="decoder_input_tensor_name" value="$(var decoder_input_tensor_name)" />
+        <arg name="encoder_output_topic" value="$(var encoder_topic)" />
+    </include>
+
+
+    <node pkg="control_selector" exec="section_map_node" name="section_map_node" output="screen">
+        <param from="$(find-pkg-share control_selector)/config/section_map_node.param.yaml" />
+    </node>
+    </launch>
