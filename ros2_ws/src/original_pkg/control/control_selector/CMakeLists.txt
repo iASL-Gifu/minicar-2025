@@ -12,6 +12,12 @@ install(TARGETS control_selector_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
+add_executable(section_map_node src/section_map_node.cpp)
+ament_target_dependencies(section_map_node rclcpp ackermann_msgs std_msgs)
+install(TARGETS section_map_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME})  

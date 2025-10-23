@@ -16,27 +16,23 @@ from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode, LoadComposableNodes
 from launch_ros.substitutions import FindPackageShare
 
-# OpaqueFunctionを使って、LaunchConfigurationの値をPythonの変数として
-# 実行時に評価するための関数です。
+# OpaqueFunction
 def launch_nodes_based_on_argument(context, *args, **kwargs):
 
     suffixes_str = context.perform_substitution(LaunchConfiguration('output_topic_suffixes'))
     model_base_name = context.perform_substitution(LaunchConfiguration('model_base_name'))
     suffixes_list = [s.strip() for s in suffixes_str.split(',') if s.strip()]
 
-    # ノードを格納するリスト
     composable_node_descriptions = []
 
-    # 取得したサフィックスのリストでループ処理
     for suffix in suffixes_list:
-
         current_model_name = f"{model_base_name}_{suffix}"
         
         # Tritonノードの定義
         triton_node = ComposableNode(
             package='isaac_ros_triton',
             plugin='nvidia::isaac_ros::dnn_inference::TritonNode',
-            name=f'triton_node_{suffix}', # ノード名
+            name=f'triton_node_{suffix}',
             parameters=[{
                 'model_name': current_model_name, 
                 'model_repository_paths': [LaunchConfiguration('model_repository_path')],
@@ -73,7 +69,6 @@ def launch_nodes_based_on_argument(context, *args, **kwargs):
         composable_node_descriptions.append(triton_node)
         composable_node_descriptions.append(decoder_node)
 
-    # 生成したノードのリストをコンテナにロードするアクション
     load_nodes_action = LoadComposableNodes(
         composable_node_descriptions=composable_node_descriptions,
         target_container=LaunchConfiguration('container_name'),
@@ -98,23 +93,18 @@ def generate_launch_description():
             'output_filtered_control_cmd', default_value='/ackermann_cmd'),
         DeclareLaunchArgument(
             'model_repository_path', default_value='/workspaces/isaac_ros_assets/models/'),
-        
         DeclareLaunchArgument(
             'model_base_name', default_value='pilotnet'), 
-        
         DeclareLaunchArgument(
             'triton_input_tensor_names', default_value="['input_1']"),
         DeclareLaunchArgument(
             'triton_output_tensor_names', default_value="['output_1']"),
-        
         DeclareLaunchArgument(
             'encoder_output_tensor_name', default_value='input_1'),
         DeclareLaunchArgument(
             'decoder_input_tensor_name', default_value='output_1'),
-        
         DeclareLaunchArgument(
             'container_name', default_value='localization_container'),
-        
         DeclareLaunchArgument(
             'network_image_width', default_value='160'),
         DeclareLaunchArgument(
@@ -123,10 +113,22 @@ def generate_launch_description():
             'original_image_width', default_value='640'),
         DeclareLaunchArgument(
             'original_image_height', default_value='480'),
-        
         DeclareLaunchArgument(
-            'output_topic_suffixes', default_value='race,540'), 
+            'output_topic_suffixes', default_value='race,540'),
     ]
+
+    # ==========================================
+    # パラメータファイルのパス (2つに分割)
+    # ==========================================
+    # Mapper用
+    section_map_config = PathJoinSubstitution([
+        FindPackageShare('control_selector'), 'config', 'section_map_node.param.yaml'
+    ])
+    
+    # Selector用
+    control_selector_config = PathJoinSubstitution([
+        FindPackageShare('control_selector'), 'config', 'control_selector.param.yaml'
+    ])
 
     # ==========================================
     # Encoder Node (共通)
@@ -157,23 +159,34 @@ def generate_launch_description():
     )
 
     # ==========================================
-    # control_selector_node
+    # Section Mapper Node (セクション -> モードID)
     # ==========================================
-    control_selector_node = Node(
+    section_mapper_node = Node(
         package='control_selector',
-        executable='control_selector_node',
-        name='control_selector_node',
+        executable='section_map_node',    # <-- 実行ファイル名変更
+        name='section_map_node',          # <-- ノード名変更 (YAMLと一致させる)
+        output='screen',
+        parameters=[section_map_config]   # <-- 専用YAMLを読み込み
+    )
+
+    # ==========================================
+    # Ackermann Mode Selector Node (モードID -> トピック)
+    # ==========================================
+    ackermann_mode_selector_node = Node(
+        package='control_selector',
+        executable='control_selector_node', # <-- 実行ファイル名変更
+        name='control_selector_node',       # <-- ノード名変更 (YAMLと一致させる)
         output='screen',
         parameters=[
-            PathJoinSubstitution([
-                FindPackageShare('control_selector'), 'config', 'params.yaml'
-            ]),
+            control_selector_config, # <-- 専用YAMLを読み込み
+            
+            # YAML内の 'output_topic' をLaunch引数で上書き
             {'output_topic': LaunchConfiguration('output_cmd_topic')}
         ]
     )
 
     # ==========================================
-    # control_filter
+    # control_filter 
     # ==========================================
     control_filter_launch = IncludeLaunchDescription(
         XMLLaunchDescriptionSource([
@@ -199,7 +212,8 @@ def generate_launch_description():
         declared_arguments +
         [
             encoder_launch,
-            control_selector_node,
+            section_mapper_node,          
+            ackermann_mode_selector_node,
             control_filter_launch,
             OpaqueFunction(function=launch_nodes_based_on_argument)
         ]
