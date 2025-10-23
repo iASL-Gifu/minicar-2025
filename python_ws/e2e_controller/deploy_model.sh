@@ -211,7 +211,7 @@ function select_model_size_interactive() {
 function select_model_interactive() {
   echo "--- デプロイ先のモデル名を選択してください ---"
   PS3="番号を入力してください: "
-  options=("pilotnet" "pilotnet_540" "pilotnet_race" "pilotnet_parking" "手動入力 (Manual Input)" "終了 (Quit)")
+  options=("pilotnet" "pilotnet_540" "pilotnet_race" "手動入力 (Manual Input)" "終了 (Quit)")
   
   while true; do
     select opt in "${options[@]}"; do
@@ -231,12 +231,6 @@ function select_model_interactive() {
         "pilotnet_race")
           MODEL_NAME="pilotnet_race"
           CONFIG_FILE="pilotnet_race_config.pbtxt"
-          echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
-          break 2
-          ;;
-        "pilotnet_parking")
-          MODEL_NAME="pilotnet_parking"
-          CONFIG_FILE="pilotnet_parking_config.pbtxt"
           echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
           break 2
           ;;
@@ -366,7 +360,12 @@ if [[ -z "$INPUT_ONNX_PATH" ]]; then
 
   # 5. 生成されたONNXファイルのパスを変数に設定
   # (.pth と同じディレクトリに best_model.onnx が生成されると仮定)
-  local checkpoint_dir=$(dirname "$SELECTED_CHECKPOINT_PATH")
+  
+  # ★★★ 修正箇所 ★★★
+  # 'local' を削除
+  checkpoint_dir=$(dirname "$SELECTED_CHECKPOINT_PATH")
+  # ★★★ 修正箇所 ★★★
+  
   INPUT_ONNX_PATH="${checkpoint_dir}/best_model.onnx"
 
   if [[ ! -f "$INPUT_ONNX_PATH" ]]; then
