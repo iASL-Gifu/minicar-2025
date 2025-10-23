@@ -77,4 +77,4 @@
         <arg name="input_raw_control_cmd" value="$(var output_cmd_topic)"/>
         <arg name="output_filtered_control_cmd" value="$(var output_filtered_control_cmd)"/>
     </include>
-    </launch>
+</launch>
