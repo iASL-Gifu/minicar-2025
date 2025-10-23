@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     mode_topic: "/current_mode"
-    output_topic: "/ackermann_cmd"
+    output_topic: "/ackermann_cmd_raw"
     # 起動時のデフォルトモード (0: race_mode, 1: 540_mode)
     default_mode: 0 
     # 'input_topics' をモードID (配列インデックス) 順のリストにする
