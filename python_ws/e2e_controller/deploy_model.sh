@@ -211,7 +211,7 @@ function select_model_size_interactive() {
 function select_model_interactive() {
   echo "--- デプロイ先のモデル名を選択してください ---"
   PS3="番号を入力してください: "
-  options=("pilotnet" "pilotnet_540" "pilotnet_race" "pilotnet_parking" "手動入力 (Manual Input)" "終了 (Quit)")
+  options=("pilotnet" "pilotnet_540" "pilotnet_race" "pilotnet_race2" "pilotnet_parking" "手動入力 (Manual Input)" "終了 (Quit)")
   
   while true; do
     select opt in "${options[@]}"; do
@@ -231,6 +231,12 @@ function select_model_interactive() {
         "pilotnet_race")
           MODEL_NAME="pilotnet_race"
           CONFIG_FILE="pilotnet_race_config.pbtxt"
+          echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
+          break 2
+          ;;
+        "pilotnet_race2")
+          MODEL_NAME="pilotnet_race2"
+          CONFIG_FILE="pilotnet_race2_config.pbtxt"
           echo "✅ モデル: $MODEL_NAME, 設定: $CONFIG_FILE を選択しました。"
           break 2
           ;;
@@ -407,6 +413,9 @@ else
         ;;
       "pilotnet_race")
         CONFIG_FILE="pilotnet_race_config.pbtxt"
+        ;;
+      "pilotnet_race2")
+        CONFIG_FILE="pilotnet_race2_config.pbtxt"
         ;;
       "pilotnet_parking")
         CONFIG_FILE="pilotnet_parking_config.pbtxt"
