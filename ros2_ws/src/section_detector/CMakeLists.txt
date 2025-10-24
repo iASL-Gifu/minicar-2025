@@ -11,7 +11,10 @@ find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 add_executable(section_detector_node src/section_detector_node.cpp)
 ament_target_dependencies(section_detector_node
@@ -19,7 +22,10 @@ ament_target_dependencies(section_detector_node
   nav_msgs
   std_msgs
   geometry_msgs
+  visualization_msgs
   tf2
+  tf2_ros
+  tf2_geometry_msgs
 )
 
 install(TARGETS section_detector_node
