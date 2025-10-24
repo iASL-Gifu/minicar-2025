@@ -1,0 +1,29 @@
+# config/train.yaml からのコピーをベースとします
+
+data_path: "data/processed"
+
+dataset:
+  sequence_length: 1
+  image_height: 120
+  image_width: 160
+  transform_mode: 'tensor' # 
+  
+model:
+  size: 'normal' # 'tiny' or 'base'
+  num_outputs: 2
+
+training:
+  epochs: 50
+  batch_size: 1   # ★ 推論・解析時は 1 を推奨します
+  learning_rate: 0.0001
+  num_workers: 8
+  
+# --- ここから推論用に追記・変更 ---
+
+# (必須) 解析に使用する学習済みモデルのパス
+# train.pyで保存された 'best_model.pth' などを指定します
+ckpt_path: "checkpoints/best_model.pth" 
+
+# (必須) 結果画像の保存先ディレクトリ名
+# (Hydraの実行ディレクトリ内にこの名前で作成されます)
+output_dir: "evaluation_results"

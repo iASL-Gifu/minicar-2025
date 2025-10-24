@@ -18,7 +18,7 @@ training:
 # --- モデルのパラメータ ---
 model:
   num_outputs: 2
-  size: tiny ## tiny normal
+  size: normal ## tiny normal
 
 log_dir: ./logs/train/${now:%Y-%m-%d}/${now:%H-%M-%S}  
 ckpt_dir: ./ckpts/train/${now:%Y-%m-%d}/${now:%H-%M-%S}  
