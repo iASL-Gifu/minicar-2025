@@ -1,30 +1,90 @@
-/**:
+/**: # ノード名は sectional_ackermann_filter_node と仮定
   ros__parameters:
-    # フィルタの種類: "average", "median", "none" から選択
-    filter_type: "none"
-    # 移動平均/中央値フィルタのウィンドウサイズ
-    window_size: 5
-    # スケール/クリップフィルタを有効にするか
-    use_scale_filter: true
-    # スケールフィルタの種類: "normal" or "advance"
-    scale_filter_type: "normal"
+    
 
-    # ---------------------------------------------------
-    # "normal" モード用のパラメータグループ
-    # ---------------------------------------------------
-    normal:
-      speed_scale_ratio: 1.0
-      steer_scale_ratio: 1.0
+    filter_type: "normal"  
+    window_size: 3
+    
+    # --- パラメータを定義するセクション番号のリスト ---
+    defined_sections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    
+    # === セクション 1 ===
+    sections.1.use_scale_filter: true
+    sections.1.scale_filter_type: "normal" 
+    sections.1.steer_offset: 0.0         
 
-    # ---------------------------------------------------
-    # "advance" モード用のパラメータグループ
-    # ---------------------------------------------------
-    advance:
-      # 直進状態と判断する操舵角の閾値 (単位: rad)
-      straight_steer_threshold: 0.075
-      # ★★★ "直進時"の速度スケール比
-      straight_speed_scale_ratio: 1.0
-      # カーブ時の速度スケール比
-      cornering_speed_scale_ratio: 1.0
-      # 操舵角のスケール比
-      steer_scale_ratio: 1.0
+    sections.1.normal.speed_scale_ratio: 1.0 
+    sections.1.normal.steer_scale_ratio: 1.0
+
+
+    # === セクション 2 ===
+    sections.2.use_scale_filter: true
+    sections.2.scale_filter_type: "normal"
+    sections.2.steer_offset: 0.0           
+
+    sections.2.normal.speed_scale_ratio: 1.0 
+    sections.2.normal.steer_scale_ratio: 1.0 
+    
+    # === セクション 3 ===
+    sections.3.use_scale_filter: true
+    sections.3.scale_filter_type: "normal" 
+    sections.3.steer_offset: 0.0           
+
+    sections.3.normal.speed_scale_ratio: 1.0 
+    sections.3.normal.steer_scale_ratio: 1.0 
+
+    # === セクション 4 ===
+    sections.4.use_scale_filter: true
+    sections.4.scale_filter_type: "normal" 
+    sections.4.steer_offset: 0.0           
+
+    sections.4.normal.speed_scale_ratio: 1.0 
+    sections.4.normal.steer_scale_ratio: 1.0 
+
+    # === セクション 5 ===
+    sections.5.use_scale_filter: true
+    sections.5.scale_filter_type: "normal" 
+    sections.5.steer_offset: 0.0           
+
+    sections.5.normal.speed_scale_ratio: 1.0 
+    sections.5.normal.steer_scale_ratio: 1.0 
+
+    # === セクション 6 ===
+    sections.6.use_scale_filter: true
+    sections.6.scale_filter_type: "normal" 
+    sections.6.steer_offset: 0.0           
+
+    sections.6.normal.speed_scale_ratio: 1.0 
+    sections.6.normal.steer_scale_ratio: 1.0 
+
+    # === セクション 7 ===
+    sections.7.use_scale_filter: true
+    sections.7.scale_filter_type: "normal" 
+    sections.7.steer_offset: 0.0           
+
+    sections.7.normal.speed_scale_ratio: 1.0 
+    sections.7.normal.steer_scale_ratio: 1.0 
+
+    # === セクション 8 ===
+    sections.8.use_scale_filter: true
+    sections.8.scale_filter_type: "normal" 
+    sections.8.steer_offset: 0.0           
+
+    sections.8.normal.speed_scale_ratio: 1.0 
+    sections.8.normal.steer_scale_ratio: 1.0 
+
+    # === セクション 9 ===
+    sections.9.use_scale_filter: true
+    sections.9.scale_filter_type: "normal" 
+    sections.9.steer_offset: 0.0           
+
+    sections.9.normal.speed_scale_ratio: 1.0 
+    sections.9.normal.steer_scale_ratio: 1.0 
+
+    # === セクション 10 ===
+    sections.10.use_scale_filter: true
+    sections.10.scale_filter_type: "normal" 
+    sections.10.steer_offset: 0.0           
+
+    sections.10.normal.speed_scale_ratio: 1.0 
+    sections.10.normal.steer_scale_ratio: 1.0
