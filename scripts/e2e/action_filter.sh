@@ -10,7 +10,7 @@
 # --- 設定 ---
 # ★ C++コードのノード名に合わせてください (例: /sectional_ackermann_filter_node)
 NODE_NAME="/control_filter_node" 
-TOTAL_SECTIONS=10
+TOTAL_SECTIONS=11
 
 # --- dialogコマンドの存在チェック ---
 if ! command -v dialog &> /dev/null; then
@@ -30,7 +30,7 @@ fi
 while true; do
     # 1. セクション選択メニュー
     menu_items=()
-    for i in $(seq 1 $TOTAL_SECTIONS); do
+    for i in $(seq 0 $TOTAL_SECTIONS); do
         menu_items+=($i "Tune Section $i")
     done
     
